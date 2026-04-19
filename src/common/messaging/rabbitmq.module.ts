@@ -13,7 +13,7 @@ export const RABBITMQ_CLIENT = 'RABBITMQ_CLIENT';
         useFactory: (config: ConfigService) => ({
           transport: Transport.RMQ,
           options: {
-            urls: [config.get<string>('RABBITMQ_URL', 'amqp://guest:guest@localhost:5672')],
+            urls: [config.get<string>('RABBITMQ_URL', 'amqp://guest:guest@localhost:5673')],
             queue: 'commission_events',
             queueOptions: { durable: true },
           },

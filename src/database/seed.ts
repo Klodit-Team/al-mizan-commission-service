@@ -32,6 +32,14 @@ async function seed() {
   const marcheRepo = AppDataSource.getRepository(CommissionMarche);
   const membreMarcheRepo = AppDataSource.getRepository(MembreMarche);
 
+  const existingEvaluations = await evalRepo.count();
+  const existingMarches = await marcheRepo.count();
+  if (existingEvaluations > 0 || existingMarches > 0) {
+    console.log('ℹ️ Seed skipped: commission data already exists.');
+    await AppDataSource.destroy();
+    return;
+  }
+
   // ── Commissions d'évaluation ──────────────────────────────────────────────
   const evaluations = await evalRepo.save([
     evalRepo.create({
