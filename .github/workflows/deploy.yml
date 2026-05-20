@@ -21,6 +21,6 @@ jobs:
             echo "🚀 Starting Deployment for commission-service..."
             cd ~/commission-service
             git pull
-            cd ~/al-mizan-deployment
-            sudo docker-compose up -d --build commission-service
+            cd ~/al-mizan-deployments
+            docker compose up -d --build commission-service
             echo "✅ Deployment Successful!"
