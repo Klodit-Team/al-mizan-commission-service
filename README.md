@@ -1,207 +1,205 @@
-# Commission Service
+# al-mizan-commission-service
 
-Microservice NestJS pour la gestion des **Commissions d'Évaluation** et des **Commissions de Marché** dans le cadre du projet **Al-Mizan**.
+> **Service de la Commission des Marchés** — Gestion des séances d'ouverture des plis, composition des commissions d'évaluation et génération de PV officiels pour la plateforme Al-Mizan.
 
-## Architecture
+---
 
-Ce service fait partie de l'architecture microservices Al-Mizan et fonctionne **derrière l'API Gateway** qui gère :
-- Authentification par sessions Redis (cookies HttpOnly/Secure/SameSite=Strict)
-- RBAC et rate limiting
-- Injection des headers `X-User-Id`, `X-User-Roles`, `X-Session-Id`
+## Table des matières
 
-**Port**: 8007
-**Base de données**: MySQL (commission_db)
-**Queue RabbitMQ**: commission_events
+1. [Aperçu](#aperçu)
+2. [Technologies](#technologies)
+3. [Architecture & Réseau](#architecture--réseau)
+4. [Variables d'environnement](#variables-denvironnement)
+5. [API REST](#api-rest)
+6. [Messagerie RabbitMQ](#messagerie-rabbitmq)
+7. [Commandes utiles](#commandes-utiles)
+8. [Docker](#docker)
 
-## Stack technique
+---
 
-| Technologie | Version |
-|---|---|
-| NestJS | ^10 |
-| TypeORM | ^0.3 |
-| MySQL | 8.x |
-| Swagger/OpenAPI | ^11 |
-| RabbitMQ | 3.x |
-| MinIO | latest |
-| class-validator | ^0.15 |
+## Aperçu
 
-## Prérequis
+`al-mizan-commission-service` gère les processus de commission dans le cycle de vie d'un appel d'offres :
 
-- Node.js >= 18
-- MySQL >= 8.0
-- RabbitMQ >= 3.x
-- npm >= 9
+- **Séance d'ouverture des plis** : enregistrement de la séance, présence des membres, PV d'ouverture.
+- **Commission d'évaluation** : composition de la commission, affectation des membres évaluateurs.
+- **Commission de marché** : validation du marché final après attribution.
+- **Génération de rapports PDF** : procès-verbaux officiels (PV d'ouverture, rapport de commission) via PDFKit, stockés sur MinIO.
 
-## Installation
+---
 
-```bash
-cd commission-service
-npm install --legacy-peer-deps
+## Technologies
+
+| Technologie       | Version  | Rôle                                              |
+|-------------------|----------|---------------------------------------------------|
+| Node.js           | 20 LTS   | Runtime                                           |
+| TypeScript        | ^5.1     | Langage                                           |
+| NestJS            | ^10.0    | Framework (modules, DI, microservices)            |
+| TypeORM           | ^0.3.28  | ORM MySQL (entities, migrations)                  |
+| MySQL             | 8.x      | Base de données principale (`commission_db`)      |
+| MinIO (SDK)       | ^8.0     | Stockage des PV et rapports PDF                   |
+| PDFKit            | ^0.17    | Génération de documents PDF                       |
+| amqplib           | ^0.10    | Client RabbitMQ                                   |
+| amqp-connection-manager | ^5.0 | Reconnexion automatique RabbitMQ              |
+| class-validator   | ^0.15    | Validation des DTOs                               |
+| @nestjs/swagger   | ^7.3     | Documentation OpenAPI                             |
+| Jest              | ^29.5    | Tests unitaires & e2e                             |
+
+---
+
+## Architecture & Réseau
+
+```
+API Gateway (:3000) ──► commission-service (:8007)
+                                │
+                                ├── MySQL    (mysql:3306 → commission_db)
+                                ├── MinIO    (minio:9000 — PV PDF)
+                                └── RabbitMQ (rabbitmq:5672)
 ```
 
-## Configuration (.env)
+- **Port exposé** : `8007`
+- **Réseau Docker** : `al-mizan-network`
+- **Nom du conteneur** : `commission-service`
+- **Swagger UI** : `http://localhost:8007/api`
+
+> ⚠️ `NODE_ENV=development` est requis pour que TypeORM synchronise automatiquement le schéma. Ne pas utiliser en production (utiliser des migrations versionnées).
+
+---
+
+## Variables d'environnement
 
 ```env
 PORT=8007
+NODE_ENV=development
+
+# MySQL
 DB_HOST=localhost
 DB_PORT=3306
 DB_USERNAME=root
-DB_PASSWORD=root
+DB_PASSWORD=password
 DB_DATABASE=commission_db
+
+# RabbitMQ
 RABBITMQ_URL=amqp://guest:guest@localhost:5672
+
+# MinIO (S3-compatible)
 MINIO_ENDPOINT=localhost
 MINIO_PORT=9000
 MINIO_USE_SSL=false
 MINIO_ACCESS_KEY=minioadmin
 MINIO_SECRET_KEY=minioadmin
-NODE_ENV=development
 ```
 
-## Démarrage
+> ⚠️ En production, remplacer `localhost` par les noms de conteneurs : `mysql`, `rabbitmq`, `minio`.
+
+---
+
+## API REST
+
+Base URL (via Gateway) : `http://localhost:3000/commission`  
+Base URL (directe) : `http://localhost:8007`  
+Swagger : `http://localhost:8007/api`
+
+### Séance d'Ouverture
+
+| Méthode  | Endpoint                                   | Auth | Description                                     |
+|----------|--------------------------------------------|------|-------------------------------------------------|
+| `POST`   | `/seance-ouverture`                        | Oui  | Créer une séance d'ouverture pour un AO         |
+| `GET`    | `/seance-ouverture/:id`                    | Oui  | Détail d'une séance                             |
+| `PATCH`  | `/seance-ouverture/:id/cloturer`           | Oui  | Clôturer la séance                              |
+| `POST`   | `/seance-ouverture/:id/pv`                 | Oui  | Générer le PV PDF d'ouverture                   |
+
+### Commission d'Évaluation
+
+| Méthode  | Endpoint                                      | Auth | Description                                |
+|----------|-----------------------------------------------|------|--------------------------------------------|
+| `POST`   | `/commission-evaluation`                      | Oui  | Créer une commission d'évaluation          |
+| `GET`    | `/commission-evaluation/:id`                  | Oui  | Détail de la commission                    |
+| `POST`   | `/commission-evaluation/:id/membres`          | Oui  | Ajouter un membre évaluateur               |
+| `DELETE` | `/commission-evaluation/:id/membres/:userId`  | Oui  | Retirer un membre                          |
+
+### Commission de Marché
+
+| Méthode  | Endpoint                                   | Auth | Description                                       |
+|----------|--------------------------------------------|------|---------------------------------------------------|
+| `POST`   | `/commission-marche`                       | Oui  | Créer une commission de marché                    |
+| `GET`    | `/commission-marche/:id`                   | Oui  | Détail de la commission de marché                 |
+| `POST`   | `/commission-marche/:id/rapport`           | Oui  | Générer le rapport PDF de commission de marché    |
+
+---
+
+## Messagerie RabbitMQ
+
+**Exchange** : `al-mizan.events` (type: `topic`, durable: `true`)
+
+### Événements publiés
+
+| Routing Key                        | Déclencheur                         | Consommateurs                    |
+|------------------------------------|-------------------------------------|----------------------------------|
+| `commission.pv.genere`             | PV d'ouverture généré               | audit-service, notification      |
+| `commission.evaluation.cloturee`   | Commission d'évaluation clôturée    | evaluation-service, audit        |
+| `commission.marche.approuve`       | Commission de marché approuvée      | notification-service, audit      |
+
+### Événements consommés
+
+| Routing Key             | Source               | Action réalisée                                        |
+|-------------------------|----------------------|--------------------------------------------------------|
+| `ao.status_changed`     | appel-offres-service | Déclenchement automatique de la commission (OUVERTURE_PLIS) |
+| `soumission.evaluee`    | soumission-service   | Réception des notes d'évaluation                       |
+
+---
+
+## Commandes utiles
+
+### Développement local
 
 ```bash
-# Créer la base de données MySQL
-mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS commission_db;"
-
-# Lancer en mode développement (hot-reload)
-npm run start:dev
-
-# Build + production
-npm run build && npm run start:prod
+npm install
+npm run start:dev       # Hot-reload NestJS
+npm run build           # Compilation TypeScript
+npm run start:prod      # Production
 ```
 
-## Docker
+### Base de données (TypeORM)
 
 ```bash
-# Build l'image
-docker build -t commission-service .
-
-# Lancer avec docker-compose (inclut MySQL + RabbitMQ)
-docker-compose up -d
-```
-
-## Seeding (données de démonstration)
-
-```bash
+# Seeder les données initiales
 npm run seed
 ```
 
-Insère 3 commissions d'évaluation et 3 commissions de marché avec leurs membres.
+> ⚠️ TypeORM est configuré en mode `synchronize: true` en développement. En production, utiliser des migrations TypeORM versionnées.
 
-## Documentation API (Swagger)
+### Tests
 
-**http://localhost:8007/api/docs**
-
-> Note: L'authentification est gérée par l'API Gateway. En développement local direct, les endpoints sont accessibles sans authentification.
-
-## Santé
-
-```
-GET /health  →  { "status": "ok", "timestamp": "..." }
+```bash
+npm test
+npm run test:e2e
+npm run test:cov
 ```
 
-## Endpoints
+---
 
-### Commission d'Évaluation — `/api/v1/commissions-evaluation`
+## Docker
 
-| Méthode | Chemin | Description |
-|---|---|---|
-| GET | `/` | Liste paginée (`page`, `limit`, `statut`, `dateFrom`, `dateTo`, `search`) |
-| POST | `/` | Créer une commission |
-| GET | `/:id` | Obtenir par ID |
-| PUT | `/:id` | Modifier |
-| DELETE | `/:id` | Supprimer |
-| PATCH | `/:id/statut` | Changer le statut |
-| GET | `/:id/membres` | Lister les membres |
-| POST | `/:id/membres` | Ajouter un membre |
-| DELETE | `/:id/membres/:membreId` | Retirer un membre |
-| GET | `/:id/export-pdf` | Export PDF (stub) |
+### Build de l'image
 
-### Commission de Marché — `/api/v1/commissions-marche`
-
-| Méthode | Chemin | Description |
-|---|---|---|
-| GET | `/` | Liste paginée |
-| POST | `/` | Créer une commission |
-| GET | `/:id` | Obtenir par ID |
-| PUT | `/:id` | Modifier |
-| DELETE | `/:id` | Supprimer |
-| PATCH | `/:id/statut` | Changer le statut |
-| GET | `/:id/membres` | Lister les membres |
-| POST | `/:id/membres` | Ajouter un membre |
-| DELETE | `/:id/membres/:membreId` | Retirer un membre |
-| POST | `/:id/deliberation` | Enregistrer le PV |
-| GET | `/:id/deliberation` | Consulter le PV |
-| PATCH | `/:id/attribution` | Attribuer le marché |
-| GET | `/:id/export-pdf` | Export PDF (MinIO) |
-
-### Séances d'Ouverture — `/api/v1/seances-ouverture`
-
-| Méthode | Chemin | Description |
-|---|---|---|
-| GET | `/` | Liste des séances (`commissionId` optionnel) |
-| POST | `/` | Programmer une séance |
-| GET | `/:id` | Obtenir une séance |
-| PUT | `/:id` | Modifier une séance |
-| DELETE | `/:id` | Supprimer (si PROGRAMMEE) |
-| PATCH | `/:id/demarrer` | Démarrer la séance |
-| PATCH | `/:id/terminer` | Terminer la séance |
-| POST | `/:id/pv` | Générer le PV (upload MinIO) |
-| POST | `/:id/resultats` | Ajouter un résultat |
-| PUT | `/:id/resultats/:resultatId` | Modifier un résultat |
-| DELETE | `/:id/resultats/:resultatId` | Supprimer un résultat |
-
-## Événements RabbitMQ
-
-Le service publie les événements suivants sur la queue `commission_events` :
-
-| Événement | Déclencheur |
-|---|---|
-| `commission.evaluation.created` | Création d'une commission d'évaluation |
-| `commission.evaluation.statut_changed` | Changement de statut |
-| `commission.marche.created` | Création d'une commission de marché |
-| `commission.marche.pv_generated` | Génération du PV de délibération |
-| `commission.marche.attributed` | Attribution du marché |
-| `commission.seance.programmee` | Programmation d'une séance d'ouverture |
-| `commission.seance.demarree` | Début d'une séance |
-| `commission.seance.terminee` | Fin d'une séance |
-| `commission.seance.pv_generated` | Génération du PV d'ouverture |
-
-## Références auto-générées
-
-- Commission d'évaluation : `CE-YYYY-NNNN` (ex: `CE-2024-0001`)
-- Commission de marché : `CM-YYYY-NNNN` (ex: `CM-2024-0001`)
-
-## Format de pagination
-
-```json
-{
-  "data": [...],
-  "total": 100,
-  "page": 1,
-  "limit": 10,
-  "totalPages": 10
-}
+```bash
+docker build -t al-mizan-commission-service .
 ```
 
-## Format d'erreur
+### Notes importantes sur le Dockerfile
 
-```json
-{
-  "statusCode": 404,
-  "message": "Commission introuvable",
-  "error": "NotFoundException",
-  "timestamp": "2024-01-01T00:00:00.000Z",
-  "path": "/api/v1/commissions-evaluation/..."
-}
+- Image de base : `node:20-alpine`
+- **`openssl` installé** pour la compatibilité NestJS/Alpine.
+- Au démarrage : `node dist/main` (TypeORM synchronise le schéma automatiquement si `NODE_ENV=development`).
+
+### Déploiement via docker-compose
+
+```bash
+docker-compose up -d commission-service
+docker-compose logs -f commission-service
 ```
 
-## Conformité CSL
+---
 
-Ce service implémente les user stories §3.2.7 du CSL Al-Mizan :
-- Constituer une commission d'évaluation
-- Constituer une commission des marchés
-- Programmer une séance d'ouverture des plis
-- Renseigner les résultats d'ouverture
-- Générer le PV d'ouverture
-- Dissoudre une commission
+*Maintenu par l'équipe Al-Mizan — voir `al-mizan-deployments` pour la configuration de déploiement complète.*

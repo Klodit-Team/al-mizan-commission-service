@@ -10,13 +10,13 @@ services:
       - "8007:8007"
     environment:
       - PORT=8007
-      - DB_HOST=mysql
+      - DB_HOST=commission-mysql
       - DB_PORT=3306
       - DB_USERNAME=commission
       - DB_PASSWORD=commission_secret
       - DB_DATABASE=commission_db
-      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
-      - MINIO_ENDPOINT=minio
+      - RABBITMQ_URL=amqp://guest:guest@al-mizan-rabbitmq:5672
+      - MINIO_ENDPOINT=al-mizan-minio
       - MINIO_PORT=9000
       - MINIO_USE_SSL=false
       - MINIO_ACCESS_KEY=minioadmin
@@ -25,12 +25,8 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
     networks:
-      - commission-network
+      - al-mizan-network
     restart: unless-stopped
 
   mysql:
@@ -52,57 +48,13 @@ services:
       retries: 5
       start_period: 30s
     networks:
-      - commission-network
-    restart: unless-stopped
-
-  rabbitmq:
-    image: rabbitmq:3-management-alpine
-    container_name: commission-rabbitmq
-    ports:
-      - "5673:5672"
-      - "15673:15672"
-    environment:
-      - RABBITMQ_DEFAULT_USER=guest
-      - RABBITMQ_DEFAULT_PASS=guest
-    volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-    networks:
-      - commission-network
-    restart: unless-stopped
-
-  minio:
-    image: minio/minio:latest
-    container_name: commission-minio
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    environment:
-      - MINIO_ROOT_USER=minioadmin
-      - MINIO_ROOT_PASSWORD=minioadmin
-    command: server /data --console-address ":9001"
-    volumes:
-      - minio_data:/data
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-    networks:
-      - commission-network
+      - al-mizan-network
     restart: unless-stopped
 
 volumes:
   mysql_data:
-  rabbitmq_data:
-  minio_data:
 
 networks:
-  commission-network:
-    driver: bridge
+  al-mizan-network:
+    name: al-mizan-network
+    external: true
