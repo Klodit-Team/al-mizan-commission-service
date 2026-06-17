@@ -3,7 +3,9 @@ import {
   NotFoundException,
   ConflictException,
   Inject,
+  Logger,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between } from 'typeorm';
 import { ClientProxy } from '@nestjs/microservices';
@@ -24,6 +26,9 @@ import { MinioService } from '../common/services/minio.service';
 
 @Injectable()
 export class CommissionEvaluationService {
+  private readonly logger = new Logger(CommissionEvaluationService.name);
+  private readonly appelsOffresServiceUrl: string;
+
   constructor(
     @InjectRepository(CommissionEvaluation)
     private readonly commissionRepo: Repository<CommissionEvaluation>,
@@ -34,7 +39,13 @@ export class CommissionEvaluationService {
     @Inject(RABBITMQ_CLIENT)
     private readonly rmqClient: ClientProxy,
     private readonly minioService: MinioService,
-  ) {}
+    private readonly configService: ConfigService,
+  ) {
+    this.appelsOffresServiceUrl = this.configService.get<string>(
+      'APPELS_OFFRES_SERVICE_URL',
+      'http://localhost:8002',
+    );
+  }
 
   private emit(event: string, payload: object): void {
     this.rmqClient.emit(event, payload).subscribe({
@@ -42,16 +53,76 @@ export class CommissionEvaluationService {
     });
   }
 
+  private inferAoReference(commission: CommissionEvaluation): string | null {
+    const fromReference = commission.reference?.startsWith('CE-')
+      ? commission.reference.slice(3)
+      : null;
+    if (fromReference) {
+      return fromReference.trim();
+    }
+
+    const objetMatch = commission.objet?.match(/AO[-A-Z0-9]+/i);
+    return objetMatch?.[0]?.trim() ?? null;
+  }
+
+  private async findAppelOffreIdByReference(
+    reference: string,
+  ): Promise<string | null> {
+    const baseUrl = this.appelsOffresServiceUrl.replace(/\/$/, '');
+    const url = new URL(`${baseUrl}/appels-offres`);
+    url.searchParams.set('reference', reference);
+    url.searchParams.set('page', '1');
+    url.searchParams.set('limit', '1');
+
+    try {
+      const response = await fetch(url.toString());
+      if (!response.ok) {
+        this.logger.warn(
+          `AO lookup failed for reference ${reference}: ${response.status}`,
+        );
+        return null;
+      }
+
+      const payload = (await response.json()) as
+        | { data?: Array<{ id?: string | null }> }
+        | Array<{ id?: string | null }>;
+      const items = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.data)
+          ? payload.data
+          : [];
+
+      const aoId = items[0]?.id;
+      return typeof aoId === 'string' && aoId.length > 0 ? aoId : null;
+    } catch (error) {
+      this.logger.warn(
+        `AO lookup by reference failed for ${reference}: ${
+          error instanceof Error ? error.message : 'unknown error'
+        }`,
+      );
+      return null;
+    }
+  }
+
   private async resolveAppelOffreId(
-    commissionId: string,
+    commission: CommissionEvaluation,
   ): Promise<{ appelOffreId: string | null; seanceId: string | null }> {
     const seance = await this.seanceRepo.findOne({
-      where: { commissionId },
+      where: { commissionId: commission.id },
       order: { createdAt: 'DESC' },
     });
 
     if (!seance) {
-      return { appelOffreId: null, seanceId: null };
+      const inferredAoReference = this.inferAoReference(commission);
+      if (!inferredAoReference) {
+        return { appelOffreId: null, seanceId: null };
+      }
+
+      return {
+        appelOffreId:
+          await this.findAppelOffreIdByReference(inferredAoReference),
+        seanceId: null,
+      };
     }
 
     return {
@@ -67,7 +138,7 @@ export class CommissionEvaluationService {
       seanceId: string | null;
     }
   > {
-    const aoContext = await this.resolveAppelOffreId(commission.id);
+    const aoContext = await this.resolveAppelOffreId(commission);
     return {
       ...commission,
       aoId: aoContext.appelOffreId,
