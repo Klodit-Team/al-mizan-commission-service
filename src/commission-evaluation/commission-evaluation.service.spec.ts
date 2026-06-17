@@ -34,6 +34,7 @@ describe('CommissionEvaluationService', () => {
     aoId: 'ao-uuid-1',
     seanceId: 'seance-uuid-1',
     membres: [],
+    nombreMinMembres: 3,
     createdAt: new Date(),
     updatedAt: new Date(),
   } as CommissionEvaluation;
