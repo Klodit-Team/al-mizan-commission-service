@@ -28,6 +28,7 @@ import { CreateSeanceDto } from './dto/create-seance.dto';
 import { UpdateSeanceDto } from './dto/update-seance.dto';
 import { CreateResultatDto } from './dto/create-resultat.dto';
 import { UpdateResultatDto } from './dto/update-resultat.dto';
+import { OuvrirPlisDto } from './dto/ouvrir-plis.dto';
 import { GatewayGuard } from '../common/guards/gateway.guard';
 import { SeanceOuverture } from './entities/seance-ouverture.entity';
 import { ResultatOuverture } from './entities/resultat-ouverture.entity';
@@ -120,6 +121,23 @@ export class SeanceOuvertureController {
   })
   demarrer(@Param('id', ParseUUIDPipe) id: string): Promise<SeanceOuverture> {
     return this.service.demarrer(id);
+  }
+
+  @Post(':id/ouvrir-plis')
+  @ApiOperation({
+    summary: 'Déclencher le dépouillement des plis (vérification quorum)',
+  })
+  @ApiParam({ name: 'id', type: 'string' })
+  @ApiResponse({
+    status: 200,
+    description: 'Plis ouverts avec succès',
+    type: SeanceOuverture,
+  })
+  ouvrirPlis(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: OuvrirPlisDto,
+  ): Promise<SeanceOuverture> {
+    return this.service.ouvrirPlis(id, dto);
   }
 
   @Patch(':id/terminer')

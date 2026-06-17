@@ -48,6 +48,10 @@ export class CommissionEvaluation {
   @Column({ type: 'text', nullable: true })
   observations: string;
 
+  @ApiPropertyOptional({ default: 3 })
+  @Column({ default: 3 })
+  nombreMinMembres: number;
+
   @ApiProperty({ type: () => [MembreEvaluation] })
   @OneToMany(() => MembreEvaluation, (membre) => membre.commission, {
     cascade: true,

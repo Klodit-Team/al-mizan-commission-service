@@ -2,10 +2,12 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsDateString,
   IsEnum,
+  IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
   IsUUID,
+  Min,
 } from 'class-validator';
 import { StatutEvaluation } from '../../common/enums/statut-evaluation.enum';
 
@@ -59,4 +61,14 @@ export class CreateCommissionEvaluationDto {
   @IsOptional()
   @IsString()
   observations?: string;
+
+  @ApiPropertyOptional({
+    description: "Nombre minimum de membres requis pour l'ouverture des plis",
+    example: 3,
+    default: 3,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  nombreMinMembres?: number;
 }

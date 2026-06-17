@@ -18,6 +18,7 @@ export const COMMISSION_EVENTS = {
   // Séances d'ouverture
   SEANCE_PROGRAMMEE: 'commission.seance.programmee',
   SEANCE_DEMARREE: 'commission.seance.demarree',
+  PLIS_OUVERTS: 'commission.seance.plis_ouverts',
   SEANCE_TERMINEE: 'commission.seance.terminee',
   PV_OUVERTURE_GENERATED: 'commission.seance.pv_generated',
 } as const;

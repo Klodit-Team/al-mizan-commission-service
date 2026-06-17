@@ -5,14 +5,17 @@ import {
   Inject,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { ClientProxy } from '@nestjs/microservices';
 import { SeanceOuverture } from './entities/seance-ouverture.entity';
 import { ResultatOuverture } from './entities/resultat-ouverture.entity';
+import { CommissionEvaluation } from '../commission-evaluation/entities/commission-evaluation.entity';
+import { MembreEvaluation } from '../commission-evaluation/entities/membre-evaluation.entity';
 import { CreateSeanceDto } from './dto/create-seance.dto';
 import { UpdateSeanceDto } from './dto/update-seance.dto';
 import { CreateResultatDto } from './dto/create-resultat.dto';
 import { UpdateResultatDto } from './dto/update-resultat.dto';
+import { OuvrirPlisDto } from './dto/ouvrir-plis.dto';
 import { StatutSeance } from '../common/enums/statut-seance.enum';
 import { COMMISSION_EVENTS } from '../common/messaging/events';
 import { MinioService } from '../common/services/minio.service';
@@ -24,6 +27,10 @@ export class SeanceOuvertureService {
     private seanceRepository: Repository<SeanceOuverture>,
     @InjectRepository(ResultatOuverture)
     private resultatRepository: Repository<ResultatOuverture>,
+    @InjectRepository(CommissionEvaluation)
+    private commissionRepository: Repository<CommissionEvaluation>,
+    @InjectRepository(MembreEvaluation)
+    private membreRepository: Repository<MembreEvaluation>,
     @Inject('RABBITMQ_CLIENT') private rabbitClient: ClientProxy,
     private minioService: MinioService,
   ) {}
@@ -116,6 +123,62 @@ export class SeanceOuvertureService {
     this.rabbitClient.emit(COMMISSION_EVENTS.SEANCE_DEMARREE, {
       seanceId: saved.id,
       commissionId: saved.commissionId,
+      timestamp: new Date().toISOString(),
+    });
+
+    return saved;
+  }
+
+  async ouvrirPlis(id: string, dto: OuvrirPlisDto): Promise<SeanceOuverture> {
+    const seance = await this.findOne(id);
+
+    if (seance.statut !== StatutSeance.EN_COURS) {
+      throw new BadRequestException(
+        "La séance doit être à l'état EN_COURS pour ouvrir les plis",
+      );
+    }
+
+    const commission = await this.commissionRepository.findOne({
+      where: { id: seance.commissionId },
+    });
+
+    if (!commission) {
+      throw new NotFoundException(
+        `Commission d'évaluation ${seance.commissionId} introuvable`,
+      );
+    }
+
+    // Vérifier le quorum
+    if (dto.membresPresentsIds.length < commission.nombreMinMembres) {
+      throw new BadRequestException(
+        `Quorum non atteint : ${dto.membresPresentsIds.length}/${commission.nombreMinMembres} membres présents requis`,
+      );
+    }
+
+    // Vérifier que chaque membre présent fait partie de la commission
+    const count = await this.membreRepository.count({
+      where: {
+        commissionId: seance.commissionId,
+        userId: In(dto.membresPresentsIds),
+      },
+    });
+
+    if (count !== dto.membresPresentsIds.length) {
+      throw new BadRequestException(
+        'Certains membres présents ne font pas partie de cette commission',
+      );
+    }
+
+    seance.membresPresentsIds = dto.membresPresentsIds;
+    seance.dateOuverture = new Date();
+
+    const saved = await this.seanceRepository.save(seance);
+
+    this.rabbitClient.emit(COMMISSION_EVENTS.PLIS_OUVERTS, {
+      seanceId: saved.id,
+      commissionId: saved.commissionId,
+      membresPresentsIds: saved.membresPresentsIds,
+      dateOuverture: saved.dateOuverture,
       timestamp: new Date().toISOString(),
     });
 
@@ -282,8 +345,8 @@ export class SeanceOuvertureService {
   }
 
   private async generatePVPdf(seance: SeanceOuverture): Promise<Buffer> {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const PDFDocument = require('pdfkit');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const PDFDocument = require('pdfkit') as typeof import('pdfkit');
 
     return new Promise((resolve) => {
       const doc = new PDFDocument({ margin: 50 });

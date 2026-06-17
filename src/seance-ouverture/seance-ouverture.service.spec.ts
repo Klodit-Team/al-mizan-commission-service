@@ -5,6 +5,8 @@ import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { SeanceOuvertureService } from './seance-ouverture.service';
 import { SeanceOuverture } from './entities/seance-ouverture.entity';
 import { ResultatOuverture } from './entities/resultat-ouverture.entity';
+import { CommissionEvaluation } from '../commission-evaluation/entities/commission-evaluation.entity';
+import { MembreEvaluation } from '../commission-evaluation/entities/membre-evaluation.entity';
 import { TypeSeance } from '../common/enums/type-seance.enum';
 import { StatutSeance } from '../common/enums/statut-seance.enum';
 import { MinioService } from '../common/services/minio.service';
@@ -13,6 +15,7 @@ describe('SeanceOuvertureService', () => {
   let service: SeanceOuvertureService;
   let seanceRepo: jest.Mocked<Repository<SeanceOuverture>>;
   let resultatRepo: jest.Mocked<Repository<ResultatOuverture>>;
+  let membreRepo: jest.Mocked<Repository<MembreEvaluation>>;
   let rabbitClient: { emit: jest.Mock };
   let minioService: { uploadFile: jest.Mock };
 
@@ -28,6 +31,8 @@ describe('SeanceOuvertureService', () => {
     isPublique: true,
     pvUrl: '',
     resultats: [],
+    membresPresentsIds: null,
+    dateOuverture: null,
     createdAt: new Date(),
   } as SeanceOuverture;
 
@@ -57,7 +62,10 @@ describe('SeanceOuvertureService', () => {
           provide: getRepositoryToken(SeanceOuverture),
           useValue: {
             create: jest.fn().mockReturnValue(mockSeance),
-            save: jest.fn().mockResolvedValue(mockSeance),
+            save: jest.fn().mockImplementation((entity) => {
+              Object.assign(mockSeance, entity);
+              return Promise.resolve(mockSeance);
+            }),
             findOne: jest.fn().mockResolvedValue(mockSeance),
             remove: jest.fn().mockResolvedValue(undefined),
             createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder),
@@ -70,6 +78,21 @@ describe('SeanceOuvertureService', () => {
             save: jest.fn().mockResolvedValue(mockResultat),
             findOne: jest.fn().mockResolvedValue(null),
             remove: jest.fn().mockResolvedValue(undefined),
+          },
+        },
+        {
+          provide: getRepositoryToken(CommissionEvaluation),
+          useValue: {
+            findOne: jest.fn().mockResolvedValue({
+              id: 'commission-uuid',
+              nombreMinMembres: 3,
+            }),
+          },
+        },
+        {
+          provide: getRepositoryToken(MembreEvaluation),
+          useValue: {
+            count: jest.fn().mockResolvedValue(3),
           },
         },
         {
@@ -90,6 +113,7 @@ describe('SeanceOuvertureService', () => {
     service = module.get<SeanceOuvertureService>(SeanceOuvertureService);
     seanceRepo = module.get(getRepositoryToken(SeanceOuverture));
     resultatRepo = module.get(getRepositoryToken(ResultatOuverture));
+    membreRepo = module.get(getRepositoryToken(MembreEvaluation));
     rabbitClient = module.get('RABBITMQ_CLIENT');
     minioService = module.get(MinioService);
   });
@@ -363,6 +387,68 @@ describe('SeanceOuvertureService', () => {
         statut: StatutSeance.PROGRAMMEE,
       });
       await expect(service.generatePV('seance-uuid')).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+  });
+
+  describe('ouvrirPlis', () => {
+    it('should open plis successfully if quorum and members are valid', async () => {
+      seanceRepo.findOne.mockResolvedValue({
+        ...mockSeance,
+        statut: StatutSeance.EN_COURS,
+      });
+      const dto = {
+        membresPresentsIds: ['user-1', 'user-2', 'user-3'],
+      };
+
+      const result = await service.ouvrirPlis('seance-uuid', dto);
+
+      expect(seanceRepo.save).toHaveBeenCalled();
+      expect(rabbitClient.emit).toHaveBeenCalled();
+      expect(result.membresPresentsIds).toEqual(dto.membresPresentsIds);
+      expect(result.dateOuverture).toBeInstanceOf(Date);
+    });
+
+    it('should throw BadRequestException if seance is not EN_COURS', async () => {
+      seanceRepo.findOne.mockResolvedValue({
+        ...mockSeance,
+        statut: StatutSeance.PROGRAMMEE,
+      });
+      const dto = {
+        membresPresentsIds: ['user-1', 'user-2', 'user-3'],
+      };
+
+      await expect(service.ouvrirPlis('seance-uuid', dto)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should throw BadRequestException if quorum is not reached', async () => {
+      seanceRepo.findOne.mockResolvedValue({
+        ...mockSeance,
+        statut: StatutSeance.EN_COURS,
+      });
+      const dto = {
+        membresPresentsIds: ['user-1'], // only 1 member
+      };
+
+      await expect(service.ouvrirPlis('seance-uuid', dto)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should throw BadRequestException if some members do not belong to the commission', async () => {
+      seanceRepo.findOne.mockResolvedValue({
+        ...mockSeance,
+        statut: StatutSeance.EN_COURS,
+      });
+      membreRepo.count.mockResolvedValue(2); // mock that only 2 out of 3 belong
+      const dto = {
+        membresPresentsIds: ['user-1', 'user-2', 'user-3'],
+      };
+
+      await expect(service.ouvrirPlis('seance-uuid', dto)).rejects.toThrow(
         BadRequestException,
       );
     });

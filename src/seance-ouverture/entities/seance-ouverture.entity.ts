@@ -63,6 +63,14 @@ export class SeanceOuverture {
   @Column({ length: 500, nullable: true })
   pvUrl: string;
 
+  @ApiPropertyOptional({ type: [String] })
+  @Column({ type: 'simple-json', nullable: true })
+  membresPresentsIds: string[] | null;
+
+  @ApiPropertyOptional()
+  @Column({ type: 'datetime', nullable: true })
+  dateOuverture: Date | null;
+
   @ApiProperty({ type: () => [ResultatOuverture] })
   @OneToMany(() => ResultatOuverture, (resultat) => resultat.seance, {
     cascade: true,
