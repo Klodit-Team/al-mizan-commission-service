@@ -5,6 +5,7 @@ import { NotFoundException, ConflictException } from '@nestjs/common';
 import { CommissionEvaluationService } from './commission-evaluation.service';
 import { CommissionEvaluation } from './entities/commission-evaluation.entity';
 import { MembreEvaluation } from './entities/membre-evaluation.entity';
+import { SeanceOuverture } from '../seance-ouverture/entities/seance-ouverture.entity';
 import { StatutEvaluation } from '../common/enums/statut-evaluation.enum';
 import { RoleMembreEvaluation } from '../common/enums/role-membre.enum';
 import { RABBITMQ_CLIENT } from '../common/messaging/rabbitmq.module';
@@ -14,6 +15,7 @@ describe('CommissionEvaluationService', () => {
   let service: CommissionEvaluationService;
   let commissionRepo: jest.Mocked<Repository<CommissionEvaluation>>;
   let membreRepo: jest.Mocked<Repository<MembreEvaluation>>;
+  let seanceRepo: jest.Mocked<Repository<SeanceOuverture>>;
   let rabbitClient: { emit: jest.Mock };
   let minioService: { uploadFile: jest.Mock };
 
@@ -26,10 +28,20 @@ describe('CommissionEvaluationService', () => {
     statut: StatutEvaluation.BROUILLON,
     presidentId: 'president-uuid',
     observations: '',
+    appelOffreId: 'ao-uuid-1',
+    aoId: 'ao-uuid-1',
+    seanceId: 'seance-uuid-1',
     membres: [],
     createdAt: new Date(),
     updatedAt: new Date(),
   } as CommissionEvaluation;
+
+  const mockSeance = {
+    id: 'seance-uuid-1',
+    commissionId: 'uuid-1',
+    appelOffreId: 'ao-uuid-1',
+    createdAt: new Date(),
+  } as SeanceOuverture;
 
   const mockMembre: MembreEvaluation = {
     id: 'membre-uuid',
@@ -78,6 +90,12 @@ describe('CommissionEvaluationService', () => {
           },
         },
         {
+          provide: getRepositoryToken(SeanceOuverture),
+          useValue: {
+            findOne: jest.fn().mockResolvedValue(mockSeance),
+          },
+        },
+        {
           provide: RABBITMQ_CLIENT,
           useValue: {
             emit: jest.fn().mockReturnValue({ subscribe: jest.fn() }),
@@ -92,9 +110,12 @@ describe('CommissionEvaluationService', () => {
       ],
     }).compile();
 
-    service = module.get<CommissionEvaluationService>(CommissionEvaluationService);
+    service = module.get<CommissionEvaluationService>(
+      CommissionEvaluationService,
+    );
     commissionRepo = module.get(getRepositoryToken(CommissionEvaluation));
     membreRepo = module.get(getRepositoryToken(MembreEvaluation));
+    seanceRepo = module.get(getRepositoryToken(SeanceOuverture));
     rabbitClient = module.get(RABBITMQ_CLIENT);
     minioService = module.get(MinioService);
   });
@@ -124,11 +145,17 @@ describe('CommissionEvaluationService', () => {
     it('should return a commission by id', async () => {
       const result = await service.findOne('uuid-1');
       expect(result).toEqual(mockCommission);
+      expect(seanceRepo.findOne).toHaveBeenCalledWith({
+        where: { commissionId: 'uuid-1' },
+        order: { createdAt: 'DESC' },
+      });
     });
 
     it('should throw NotFoundException if commission not found', async () => {
       commissionRepo.findOne.mockResolvedValue(null);
-      await expect(service.findOne('invalid-id')).rejects.toThrow(NotFoundException);
+      await expect(service.findOne('invalid-id')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -142,7 +169,11 @@ describe('CommissionEvaluationService', () => {
     });
 
     it('should search by reference or objet', async () => {
-      const result = await service.findAll({ page: 1, limit: 10, search: 'test' });
+      const result = await service.findAll({
+        page: 1,
+        limit: 10,
+        search: 'test',
+      });
 
       expect(commissionRepo.createQueryBuilder).toHaveBeenCalled();
       expect(result.data).toEqual([mockCommission]);
@@ -202,7 +233,9 @@ describe('CommissionEvaluationService', () => {
       membreRepo.findOne.mockResolvedValue(mockMembre);
       const dto = { userId: 'existing-user' };
 
-      await expect(service.addMembre('uuid-1', dto as any)).rejects.toThrow(ConflictException);
+      await expect(service.addMembre('uuid-1', dto as any)).rejects.toThrow(
+        ConflictException,
+      );
     });
   });
 
@@ -215,7 +248,9 @@ describe('CommissionEvaluationService', () => {
 
     it('should throw NotFoundException if membre not found', async () => {
       membreRepo.findOne.mockResolvedValue(null);
-      await expect(service.removeMembre('uuid-1', 'invalid')).rejects.toThrow(NotFoundException);
+      await expect(service.removeMembre('uuid-1', 'invalid')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 

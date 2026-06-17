@@ -7,8 +7,10 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between } from 'typeorm';
 import { ClientProxy } from '@nestjs/microservices';
+import PDFDocument from 'pdfkit';
 import { CommissionEvaluation } from './entities/commission-evaluation.entity';
 import { MembreEvaluation } from './entities/membre-evaluation.entity';
+import { SeanceOuverture } from '../seance-ouverture/entities/seance-ouverture.entity';
 import { CreateCommissionEvaluationDto } from './dto/create-commission-evaluation.dto';
 import { UpdateCommissionEvaluationDto } from './dto/update-commission-evaluation.dto';
 import { AddMembreEvaluationDto } from './dto/add-membre-evaluation.dto';
@@ -27,13 +29,69 @@ export class CommissionEvaluationService {
     private readonly commissionRepo: Repository<CommissionEvaluation>,
     @InjectRepository(MembreEvaluation)
     private readonly membreRepo: Repository<MembreEvaluation>,
+    @InjectRepository(SeanceOuverture)
+    private readonly seanceRepo: Repository<SeanceOuverture>,
     @Inject(RABBITMQ_CLIENT)
     private readonly rmqClient: ClientProxy,
     private readonly minioService: MinioService,
   ) {}
 
   private emit(event: string, payload: object): void {
-    this.rmqClient.emit(event, payload).subscribe({ error: (e) => console.error(`RabbitMQ emit error [${event}]:`, e) });
+    this.rmqClient.emit(event, payload).subscribe({
+      error: (e) => console.error(`RabbitMQ emit error [${event}]:`, e),
+    });
+  }
+
+  private async resolveAppelOffreId(
+    commissionId: string,
+  ): Promise<{ appelOffreId: string | null; seanceId: string | null }> {
+    const seance = await this.seanceRepo.findOne({
+      where: { commissionId },
+      order: { createdAt: 'DESC' },
+    });
+
+    if (!seance) {
+      return { appelOffreId: null, seanceId: null };
+    }
+
+    return {
+      appelOffreId: seance.appelOffreId,
+      seanceId: seance.id,
+    };
+  }
+
+  private async serializeWithAo(commission: CommissionEvaluation): Promise<
+    CommissionEvaluation & {
+      aoId: string | null;
+      appelOffreId: string | null;
+      seanceId: string | null;
+    }
+  > {
+    const aoContext = await this.resolveAppelOffreId(commission.id);
+    return {
+      ...commission,
+      aoId: aoContext.appelOffreId,
+      appelOffreId: aoContext.appelOffreId,
+      seanceId: aoContext.seanceId,
+    };
+  }
+
+  private async getCommissionEntity(
+    id: string,
+    withRelations = false,
+  ): Promise<CommissionEvaluation> {
+    const commission = await this.commissionRepo.findOne({
+      where: { id },
+      relations: withRelations ? ['membres'] : [],
+    });
+
+    if (!commission) {
+      throw new NotFoundException(
+        `Commission d'évaluation avec l'ID "${id}" introuvable`,
+      );
+    }
+
+    return commission;
   }
 
   private async generateReference(): Promise<string> {
@@ -42,7 +100,9 @@ export class CommissionEvaluationService {
     return `CE-${year}-${String(count + 1).padStart(4, '0')}`;
   }
 
-  async findAll(query: PaginationQueryDto): Promise<PaginatedResponseDto<CommissionEvaluation>> {
+  async findAll(
+    query: PaginationQueryDto,
+  ): Promise<PaginatedResponseDto<CommissionEvaluation>> {
     const { page = 1, limit = 10, statut, dateFrom, dateTo, search } = query;
     const skip = (page - 1) * limit;
 
@@ -66,12 +126,23 @@ export class CommissionEvaluationService {
         .where('ce.reference LIKE :search OR ce.objet LIKE :search', {
           search: `%${search}%`,
         })
-        .andWhere(statut ? 'ce.statut = :statut' : '1=1', statut ? { statut } : {})
+        .andWhere(
+          statut ? 'ce.statut = :statut' : '1=1',
+          statut ? { statut } : {},
+        )
         .skip(skip)
         .take(limit)
         .getManyAndCount();
 
-      return new PaginatedResponseDto(results[0], results[1], page, limit);
+      const enriched = await Promise.all(
+        results[0].map((item) => this.serializeWithAo(item)),
+      );
+      return new PaginatedResponseDto(
+        enriched as CommissionEvaluation[],
+        results[1],
+        page,
+        limit,
+      );
     }
 
     const [data, total] = await this.commissionRepo.findAndCount({
@@ -81,21 +152,25 @@ export class CommissionEvaluationService {
       order: { createdAt: 'DESC' },
     });
 
-    return new PaginatedResponseDto(data, total, page, limit);
+    const enriched = await Promise.all(
+      data.map((item) => this.serializeWithAo(item)),
+    );
+    return new PaginatedResponseDto(
+      enriched as CommissionEvaluation[],
+      total,
+      page,
+      limit,
+    );
   }
 
   async findOne(id: string): Promise<CommissionEvaluation> {
-    const commission = await this.commissionRepo.findOne({
-      where: { id },
-      relations: ['membres'],
-    });
-    if (!commission) {
-      throw new NotFoundException(`Commission d'évaluation avec l'ID "${id}" introuvable`);
-    }
-    return commission;
+    const commission = await this.getCommissionEntity(id, true);
+    return this.serializeWithAo(commission) as Promise<CommissionEvaluation>;
   }
 
-  async create(dto: CreateCommissionEvaluationDto): Promise<CommissionEvaluation> {
+  async create(
+    dto: CreateCommissionEvaluationDto,
+  ): Promise<CommissionEvaluation> {
     const reference = await this.generateReference();
     const commission = this.commissionRepo.create({ ...dto, reference });
     const saved = await this.commissionRepo.save(commission);
@@ -106,22 +181,29 @@ export class CommissionEvaluationService {
       presidentId: saved.presidentId,
       createdAt: saved.createdAt,
     });
-    return saved;
+    return this.findOne(saved.id);
   }
 
-  async update(id: string, dto: UpdateCommissionEvaluationDto): Promise<CommissionEvaluation> {
-    const commission = await this.findOne(id);
+  async update(
+    id: string,
+    dto: UpdateCommissionEvaluationDto,
+  ): Promise<CommissionEvaluation> {
+    const commission = await this.getCommissionEntity(id, true);
     Object.assign(commission, dto);
-    return this.commissionRepo.save(commission);
+    const saved = await this.commissionRepo.save(commission);
+    return this.findOne(saved.id);
   }
 
   async remove(id: string): Promise<void> {
-    const commission = await this.findOne(id);
+    const commission = await this.getCommissionEntity(id, true);
     await this.commissionRepo.remove(commission);
   }
 
-  async changeStatut(id: string, dto: ChangeStatutEvaluationDto): Promise<CommissionEvaluation> {
-    const commission = await this.findOne(id);
+  async changeStatut(
+    id: string,
+    dto: ChangeStatutEvaluationDto,
+  ): Promise<CommissionEvaluation> {
+    const commission = await this.getCommissionEntity(id, true);
     commission.statut = dto.statut;
     const saved = await this.commissionRepo.save(commission);
     this.emit(COMMISSION_EVENTS.EVALUATION_STATUT_CHANGED, {
@@ -130,55 +212,61 @@ export class CommissionEvaluationService {
       statut: dto.statut,
       changedAt: new Date().toISOString(),
     });
-    return saved;
+    return this.findOne(saved.id);
   }
 
   async findMembres(id: string): Promise<MembreEvaluation[]> {
-    await this.findOne(id);
+    await this.getCommissionEntity(id);
     return this.membreRepo.find({ where: { commissionId: id } });
   }
 
-  async addMembre(id: string, dto: AddMembreEvaluationDto): Promise<MembreEvaluation> {
-    await this.findOne(id);
+  async addMembre(
+    id: string,
+    dto: AddMembreEvaluationDto,
+  ): Promise<MembreEvaluation> {
+    await this.getCommissionEntity(id);
     const existing = await this.membreRepo.findOne({
       where: { commissionId: id, userId: dto.userId },
     });
     if (existing) {
-      throw new ConflictException('Ce membre fait déjà partie de cette commission');
+      throw new ConflictException(
+        'Ce membre fait déjà partie de cette commission',
+      );
     }
     const membre = this.membreRepo.create({ ...dto, commissionId: id });
     return this.membreRepo.save(membre);
   }
 
   async removeMembre(id: string, membreId: string): Promise<void> {
-    await this.findOne(id);
+    await this.getCommissionEntity(id);
     const membre = await this.membreRepo.findOne({
       where: { id: membreId, commissionId: id },
     });
     if (!membre) {
-      throw new NotFoundException(`Membre avec l'ID "${membreId}" introuvable dans cette commission`);
+      throw new NotFoundException(
+        `Membre avec l'ID "${membreId}" introuvable dans cette commission`,
+      );
     }
     await this.membreRepo.remove(membre);
   }
 
   async updateMembre(id: string, membreId: string, dto: any): Promise<any> {
-    await this.findOne(id);
+    await this.getCommissionEntity(id);
     const membre = await this.membreRepo.findOne({
       where: { id: membreId, commissionId: id },
     });
     if (!membre) {
-      throw new NotFoundException(`Membre avec l'ID "${membreId}" introuvable dans cette commission`);
+      throw new NotFoundException(
+        `Membre avec l'ID "${membreId}" introuvable dans cette commission`,
+      );
     }
     Object.assign(membre, dto);
     return this.membreRepo.save(membre);
   }
 
   async exportPdf(id: string): Promise<{ buffer: Buffer; fileName: string }> {
-    const commission = await this.findOne(id);
+    const commission = await this.getCommissionEntity(id, true);
     const membres = await this.findMembres(id);
-
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const PDFDocument = require('pdfkit');
 
     const buffer = await new Promise<Buffer>((resolve) => {
       const doc = new PDFDocument({ margin: 50 });
@@ -188,15 +276,23 @@ export class CommissionEvaluationService {
       doc.on('end', () => resolve(Buffer.concat(chunks)));
 
       // Title
-      doc.fontSize(18).font('Helvetica-Bold').text("COMMISSION D'EVALUATION", { align: 'center' });
-      doc.fontSize(12).font('Helvetica').text(commission.reference, { align: 'center' });
+      doc
+        .fontSize(18)
+        .font('Helvetica-Bold')
+        .text("COMMISSION D'EVALUATION", { align: 'center' });
+      doc
+        .fontSize(12)
+        .font('Helvetica')
+        .text(commission.reference, { align: 'center' });
       doc.moveDown();
 
       // Commission info
       doc.fontSize(12).font('Helvetica');
       doc.text(`Objet: ${commission.objet}`);
       doc.text(`Date de creation: ${commission.dateCreation}`);
-      doc.text(`Date de reunion: ${commission.dateReunion || 'Non programmee'}`);
+      doc.text(
+        `Date de reunion: ${commission.dateReunion || 'Non programmee'}`,
+      );
       doc.text(`Statut: ${commission.statut}`);
       if (commission.observations) {
         doc.text(`Observations: ${commission.observations}`);
@@ -204,7 +300,10 @@ export class CommissionEvaluationService {
       doc.moveDown();
 
       // Members section
-      doc.fontSize(14).font('Helvetica-Bold').text('MEMBRES DE LA COMMISSION', { underline: true });
+      doc
+        .fontSize(14)
+        .font('Helvetica-Bold')
+        .text('MEMBRES DE LA COMMISSION', { underline: true });
       doc.moveDown(0.5);
 
       doc.fontSize(11).font('Helvetica');
@@ -213,7 +312,12 @@ export class CommissionEvaluationService {
       });
 
       doc.moveDown();
-      doc.fontSize(10).fillColor('gray').text(`Genere le: ${new Date().toLocaleString('fr-FR')}`, { align: 'right' });
+      doc
+        .fontSize(10)
+        .fillColor('gray')
+        .text(`Genere le: ${new Date().toLocaleString('fr-FR')}`, {
+          align: 'right',
+        });
 
       doc.end();
     });

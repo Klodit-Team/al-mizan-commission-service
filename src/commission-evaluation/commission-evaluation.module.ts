@@ -4,12 +4,17 @@ import { CommissionEvaluationController } from './commission-evaluation.controll
 import { CommissionEvaluationService } from './commission-evaluation.service';
 import { CommissionEvaluation } from './entities/commission-evaluation.entity';
 import { MembreEvaluation } from './entities/membre-evaluation.entity';
+import { SeanceOuverture } from '../seance-ouverture/entities/seance-ouverture.entity';
 import { RabbitMQModule } from '../common/messaging/rabbitmq.module';
 import { MinioService } from '../common/services/minio.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([CommissionEvaluation, MembreEvaluation]),
+    TypeOrmModule.forFeature([
+      CommissionEvaluation,
+      MembreEvaluation,
+      SeanceOuverture,
+    ]),
     RabbitMQModule,
   ],
   controllers: [CommissionEvaluationController],
