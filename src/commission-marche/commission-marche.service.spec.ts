@@ -265,11 +265,11 @@ describe('CommissionMarcheService', () => {
   });
 
   describe('exportPdf', () => {
-    it('should generate PDF and upload to MinIO', async () => {
+    it('should generate PDF buffer and return fileName', async () => {
       const result = await service.exportPdf('uuid-1');
 
-      expect(minioService.uploadFile).toHaveBeenCalled();
-      expect(result.url).toBe('http://minio/file.pdf');
+      expect(result.fileName).toContain('commission-marche');
+      expect(result.buffer).toBeInstanceOf(Buffer);
     });
   });
 });

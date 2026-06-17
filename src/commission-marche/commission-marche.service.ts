@@ -242,8 +242,8 @@ export class CommissionMarcheService {
     const commission = await this.findOne(id);
     const membres = await this.findMembres(id);
 
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const PDFDocument = require('pdfkit');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const PDFDocument = require('pdfkit') as typeof import('pdfkit');
 
     const buffer = await new Promise<Buffer>((resolve) => {
       const doc = new PDFDocument({ margin: 50 });

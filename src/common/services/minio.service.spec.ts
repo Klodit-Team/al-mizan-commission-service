@@ -16,7 +16,6 @@ jest.mock('minio', () => ({
 
 describe('MinioService', () => {
   let service: MinioService;
-  let configService: ConfigService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -41,7 +40,6 @@ describe('MinioService', () => {
     }).compile();
 
     service = module.get<MinioService>(MinioService);
-    configService = module.get<ConfigService>(ConfigService);
   });
 
   it('should be defined', () => {
