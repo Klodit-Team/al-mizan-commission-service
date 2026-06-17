@@ -42,7 +42,7 @@ export class CreateCommissionMarcheDto {
   montantEstime?: number;
 
   @ApiPropertyOptional({
-    description: 'Date d\'ouverture des offres (ISO 8601)',
+    description: "Date d'ouverture des offres (ISO 8601)",
     example: '2024-03-01',
   })
   @IsOptional()

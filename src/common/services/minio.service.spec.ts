@@ -72,14 +72,19 @@ describe('MinioService', () => {
 
   describe('getPresignedUrl', () => {
     it('should return a presigned URL', async () => {
-      const result = await service.getPresignedUrl('test-bucket', 'test-file.pdf');
+      const result = await service.getPresignedUrl(
+        'test-bucket',
+        'test-file.pdf',
+      );
       expect(result).toBe('http://presigned-url');
     });
   });
 
   describe('deleteFile', () => {
     it('should delete a file', async () => {
-      await expect(service.deleteFile('test-bucket', 'test-file.pdf')).resolves.not.toThrow();
+      await expect(
+        service.deleteFile('test-bucket', 'test-file.pdf'),
+      ).resolves.not.toThrow();
     });
   });
 

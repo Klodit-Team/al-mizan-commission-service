@@ -134,7 +134,9 @@ describe('CommissionMarcheService', () => {
 
     it('should throw NotFoundException if commission not found', async () => {
       commissionRepo.findOne.mockResolvedValue(null);
-      await expect(service.findOne('invalid-id')).rejects.toThrow(NotFoundException);
+      await expect(service.findOne('invalid-id')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -147,7 +149,11 @@ describe('CommissionMarcheService', () => {
     });
 
     it('should search by reference or intitule', async () => {
-      const result = await service.findAll({ page: 1, limit: 10, search: 'test' });
+      const result = await service.findAll({
+        page: 1,
+        limit: 10,
+        search: 'test',
+      });
 
       expect(commissionRepo.createQueryBuilder).toHaveBeenCalled();
       expect(result.data).toEqual([mockCommission]);
@@ -207,7 +213,9 @@ describe('CommissionMarcheService', () => {
       membreRepo.findOne.mockResolvedValue(mockMembre);
       const dto = { userId: 'existing-user' };
 
-      await expect(service.addMembre('uuid-1', dto as any)).rejects.toThrow(ConflictException);
+      await expect(service.addMembre('uuid-1', dto as any)).rejects.toThrow(
+        ConflictException,
+      );
     });
   });
 
@@ -220,7 +228,9 @@ describe('CommissionMarcheService', () => {
 
     it('should throw NotFoundException if membre not found', async () => {
       membreRepo.findOne.mockResolvedValue(null);
-      await expect(service.removeMembre('uuid-1', 'invalid')).rejects.toThrow(NotFoundException);
+      await expect(service.removeMembre('uuid-1', 'invalid')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 

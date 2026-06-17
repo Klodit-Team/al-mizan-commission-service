@@ -30,7 +30,9 @@ export class MinioService implements OnModuleInit {
         this.logger.log(`Bucket '${bucketName}' created`);
       }
     } catch (error) {
-      this.logger.warn(`Could not ensure bucket '${bucketName}': ${error.message}`);
+      this.logger.warn(
+        `Could not ensure bucket '${bucketName}': ${error.message}`,
+      );
     }
   }
 
@@ -47,7 +49,8 @@ export class MinioService implements OnModuleInit {
 
       const endpoint = this.configService.get('MINIO_ENDPOINT', 'localhost');
       const port = this.configService.get<number>('MINIO_PORT', 9000);
-      const useSSL = this.configService.get('MINIO_USE_SSL', 'false') === 'true';
+      const useSSL =
+        this.configService.get('MINIO_USE_SSL', 'false') === 'true';
       const protocol = useSSL ? 'https' : 'http';
 
       return `${protocol}://${endpoint}:${port}/${bucket}/${fileName}`;
@@ -57,7 +60,11 @@ export class MinioService implements OnModuleInit {
     }
   }
 
-  async getPresignedUrl(bucket: string, fileName: string, expiry = 3600): Promise<string> {
+  async getPresignedUrl(
+    bucket: string,
+    fileName: string,
+    expiry = 3600,
+  ): Promise<string> {
     try {
       return await this.client.presignedGetObject(bucket, fileName, expiry);
     } catch (error) {
@@ -84,7 +91,10 @@ export class MinioService implements OnModuleInit {
     }
   }
 
-  async getFileStream(bucket: string, fileName: string): Promise<NodeJS.ReadableStream> {
+  async getFileStream(
+    bucket: string,
+    fileName: string,
+  ): Promise<NodeJS.ReadableStream> {
     try {
       return await this.client.getObject(bucket, fileName);
     } catch (error) {
@@ -93,7 +103,10 @@ export class MinioService implements OnModuleInit {
     }
   }
 
-  async getFileStat(bucket: string, fileName: string): Promise<Minio.BucketItemStat> {
+  async getFileStat(
+    bucket: string,
+    fileName: string,
+  ): Promise<Minio.BucketItemStat> {
     return this.client.statObject(bucket, fileName);
   }
 }

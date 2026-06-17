@@ -28,11 +28,13 @@ async function bootstrap() {
   // Swagger (no Bearer auth - handled by API Gateway via session cookies)
   const config = new DocumentBuilder()
     .setTitle('Commission Service API')
-    .setDescription('API de gestion des Commissions d\'Évaluation et de Marché - Al-Mizan')
+    .setDescription(
+      "API de gestion des Commissions d'Évaluation et de Marché - Al-Mizan",
+    )
     .setVersion('1.0')
     .addServer('http://localhost:8007', 'Local (dev direct)')
     .addServer('/api/commission', 'Via API Gateway')
-    .addTag('commission-evaluation', 'Gestion des commissions d\'évaluation')
+    .addTag('commission-evaluation', "Gestion des commissions d'évaluation")
     .addTag('commission-marche', 'Gestion des commissions de marché')
     .build();
 

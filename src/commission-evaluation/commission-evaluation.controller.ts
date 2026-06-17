@@ -36,53 +36,127 @@ import { MembreEvaluation } from './entities/membre-evaluation.entity';
 import { PaginatedResponseDto } from '../common/dto/pagination-response.dto';
 
 @ApiTags('commission-evaluation')
-@ApiHeader({ name: 'x-user-id', required: true, description: 'ID utilisateur injecté par l\'API Gateway' })
-@ApiHeader({ name: 'x-user-roles', required: false, description: 'Rôles utilisateur injectés par l\'API Gateway' })
+@ApiHeader({
+  name: 'x-user-id',
+  required: true,
+  description: "ID utilisateur injecté par l'API Gateway",
+})
+@ApiHeader({
+  name: 'x-user-roles',
+  required: false,
+  description: "Rôles utilisateur injectés par l'API Gateway",
+})
 @UseGuards(GatewayGuard)
 @Controller('api/v1/commissions-evaluation')
 export class CommissionEvaluationController {
   constructor(private readonly service: CommissionEvaluationService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Lister toutes les commissions d\'évaluation (avec pagination et filtres)' })
-  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Numéro de page' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Éléments par page' })
-  @ApiQuery({ name: 'statut', required: false, enum: ['BROUILLON', 'ACTIVE', 'CLOTUREE', 'ANNULEE'], description: 'Filtrer par statut' })
-  @ApiQuery({ name: 'dateFrom', required: false, type: String, description: 'Date de début (ISO 8601)' })
-  @ApiQuery({ name: 'dateTo', required: false, type: String, description: 'Date de fin (ISO 8601)' })
-  @ApiQuery({ name: 'search', required: false, type: String, description: 'Recherche par référence ou objet' })
-  @ApiResponse({ status: 200, description: 'Liste paginée des commissions d\'évaluation' })
-  @ApiResponse({ status: 401, description: 'Non autorisé — header X-User-Id manquant ou session invalide' })
-  findAll(@Query() query: PaginationQueryDto): Promise<PaginatedResponseDto<CommissionEvaluation>> {
+  @ApiOperation({
+    summary:
+      "Lister toutes les commissions d'évaluation (avec pagination et filtres)",
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Numéro de page',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Éléments par page',
+  })
+  @ApiQuery({
+    name: 'statut',
+    required: false,
+    enum: ['BROUILLON', 'ACTIVE', 'CLOTUREE', 'ANNULEE'],
+    description: 'Filtrer par statut',
+  })
+  @ApiQuery({
+    name: 'dateFrom',
+    required: false,
+    type: String,
+    description: 'Date de début (ISO 8601)',
+  })
+  @ApiQuery({
+    name: 'dateTo',
+    required: false,
+    type: String,
+    description: 'Date de fin (ISO 8601)',
+  })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    type: String,
+    description: 'Recherche par référence ou objet',
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Liste paginée des commissions d'évaluation",
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Non autorisé — header X-User-Id manquant ou session invalide',
+  })
+  findAll(
+    @Query() query: PaginationQueryDto,
+  ): Promise<PaginatedResponseDto<CommissionEvaluation>> {
     return this.service.findAll(query);
   }
 
   @Post()
-  @ApiOperation({ summary: 'Créer une nouvelle commission d\'évaluation' })
-  @ApiResponse({ status: 201, description: 'Commission créée avec succès', type: CommissionEvaluation })
+  @ApiOperation({ summary: "Créer une nouvelle commission d'évaluation" })
+  @ApiResponse({
+    status: 201,
+    description: 'Commission créée avec succès',
+    type: CommissionEvaluation,
+  })
   @ApiResponse({ status: 400, description: 'Données de validation invalides' })
-  @ApiResponse({ status: 401, description: 'Non autorisé — header X-User-Id manquant ou session invalide' })
-  create(@Body() dto: CreateCommissionEvaluationDto): Promise<CommissionEvaluation> {
+  @ApiResponse({
+    status: 401,
+    description: 'Non autorisé — header X-User-Id manquant ou session invalide',
+  })
+  create(
+    @Body() dto: CreateCommissionEvaluationDto,
+  ): Promise<CommissionEvaluation> {
     return this.service.create(dto);
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Obtenir une commission d\'évaluation par son ID' })
+  @ApiOperation({ summary: "Obtenir une commission d'évaluation par son ID" })
   @ApiParam({ name: 'id', description: 'UUID de la commission', type: String })
-  @ApiResponse({ status: 200, description: 'Commission trouvée', type: CommissionEvaluation })
+  @ApiResponse({
+    status: 200,
+    description: 'Commission trouvée',
+    type: CommissionEvaluation,
+  })
   @ApiResponse({ status: 404, description: 'Commission introuvable' })
-  @ApiResponse({ status: 401, description: 'Non autorisé — header X-User-Id manquant ou session invalide' })
-  findOne(@Param('id', ParseUUIDPipe) id: string): Promise<CommissionEvaluation> {
+  @ApiResponse({
+    status: 401,
+    description: 'Non autorisé — header X-User-Id manquant ou session invalide',
+  })
+  findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<CommissionEvaluation> {
     return this.service.findOne(id);
   }
 
   @Put(':id')
-  @ApiOperation({ summary: 'Modifier une commission d\'évaluation' })
+  @ApiOperation({ summary: "Modifier une commission d'évaluation" })
   @ApiParam({ name: 'id', description: 'UUID de la commission', type: String })
-  @ApiResponse({ status: 200, description: 'Commission mise à jour', type: CommissionEvaluation })
+  @ApiResponse({
+    status: 200,
+    description: 'Commission mise à jour',
+    type: CommissionEvaluation,
+  })
   @ApiResponse({ status: 400, description: 'Données de validation invalides' })
   @ApiResponse({ status: 404, description: 'Commission introuvable' })
-  @ApiResponse({ status: 401, description: 'Non autorisé — header X-User-Id manquant ou session invalide' })
+  @ApiResponse({
+    status: 401,
+    description: 'Non autorisé — header X-User-Id manquant ou session invalide',
+  })
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateCommissionEvaluationDto,
@@ -92,22 +166,32 @@ export class CommissionEvaluationController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Supprimer une commission d\'évaluation' })
+  @ApiOperation({ summary: "Supprimer une commission d'évaluation" })
   @ApiParam({ name: 'id', description: 'UUID de la commission', type: String })
   @ApiResponse({ status: 204, description: 'Commission supprimée' })
   @ApiResponse({ status: 404, description: 'Commission introuvable' })
-  @ApiResponse({ status: 401, description: 'Non autorisé — header X-User-Id manquant ou session invalide' })
+  @ApiResponse({
+    status: 401,
+    description: 'Non autorisé — header X-User-Id manquant ou session invalide',
+  })
   remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     return this.service.remove(id);
   }
 
   @Patch(':id/statut')
-  @ApiOperation({ summary: 'Changer le statut d\'une commission d\'évaluation' })
+  @ApiOperation({ summary: "Changer le statut d'une commission d'évaluation" })
   @ApiParam({ name: 'id', description: 'UUID de la commission', type: String })
-  @ApiResponse({ status: 200, description: 'Statut mis à jour', type: CommissionEvaluation })
+  @ApiResponse({
+    status: 200,
+    description: 'Statut mis à jour',
+    type: CommissionEvaluation,
+  })
   @ApiResponse({ status: 400, description: 'Statut invalide' })
   @ApiResponse({ status: 404, description: 'Commission introuvable' })
-  @ApiResponse({ status: 401, description: 'Non autorisé — header X-User-Id manquant ou session invalide' })
+  @ApiResponse({
+    status: 401,
+    description: 'Non autorisé — header X-User-Id manquant ou session invalide',
+  })
   changeStatut(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ChangeStatutEvaluationDto,
@@ -116,23 +200,42 @@ export class CommissionEvaluationController {
   }
 
   @Get(':id/membres')
-  @ApiOperation({ summary: 'Lister les membres d\'une commission d\'évaluation' })
+  @ApiOperation({ summary: "Lister les membres d'une commission d'évaluation" })
   @ApiParam({ name: 'id', description: 'UUID de la commission', type: String })
-  @ApiResponse({ status: 200, description: 'Liste des membres', type: [MembreEvaluation] })
+  @ApiResponse({
+    status: 200,
+    description: 'Liste des membres',
+    type: [MembreEvaluation],
+  })
   @ApiResponse({ status: 404, description: 'Commission introuvable' })
-  @ApiResponse({ status: 401, description: 'Non autorisé — header X-User-Id manquant ou session invalide' })
-  findMembres(@Param('id', ParseUUIDPipe) id: string): Promise<MembreEvaluation[]> {
+  @ApiResponse({
+    status: 401,
+    description: 'Non autorisé — header X-User-Id manquant ou session invalide',
+  })
+  findMembres(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<MembreEvaluation[]> {
     return this.service.findMembres(id);
   }
 
   @Post(':id/membres')
-  @ApiOperation({ summary: 'Ajouter un membre à une commission d\'évaluation' })
+  @ApiOperation({ summary: "Ajouter un membre à une commission d'évaluation" })
   @ApiParam({ name: 'id', description: 'UUID de la commission', type: String })
-  @ApiResponse({ status: 201, description: 'Membre ajouté avec succès', type: MembreEvaluation })
+  @ApiResponse({
+    status: 201,
+    description: 'Membre ajouté avec succès',
+    type: MembreEvaluation,
+  })
   @ApiResponse({ status: 400, description: 'Données invalides' })
   @ApiResponse({ status: 404, description: 'Commission introuvable' })
-  @ApiResponse({ status: 409, description: 'Ce membre est déjà dans la commission' })
-  @ApiResponse({ status: 401, description: 'Non autorisé — header X-User-Id manquant ou session invalide' })
+  @ApiResponse({
+    status: 409,
+    description: 'Ce membre est déjà dans la commission',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Non autorisé — header X-User-Id manquant ou session invalide',
+  })
   addMembre(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: AddMembreEvaluationDto,
@@ -141,10 +244,14 @@ export class CommissionEvaluationController {
   }
 
   @Put(':id/membres/:membreId')
-  @ApiOperation({ summary: 'Modifier un membre d\'une commission d\'évaluation' })
+  @ApiOperation({ summary: "Modifier un membre d'une commission d'évaluation" })
   @ApiParam({ name: 'id', description: 'UUID de la commission', type: String })
   @ApiParam({ name: 'membreId', description: 'UUID du membre', type: String })
-  @ApiResponse({ status: 200, description: 'Membre mis à jour', type: MembreEvaluation })
+  @ApiResponse({
+    status: 200,
+    description: 'Membre mis à jour',
+    type: MembreEvaluation,
+  })
   @ApiResponse({ status: 404, description: 'Commission ou membre introuvable' })
   @ApiResponse({ status: 401, description: 'Non autorisé' })
   updateMembre(
@@ -157,12 +264,15 @@ export class CommissionEvaluationController {
 
   @Delete(':id/membres/:membreId')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Retirer un membre d\'une commission d\'évaluation' })
+  @ApiOperation({ summary: "Retirer un membre d'une commission d'évaluation" })
   @ApiParam({ name: 'id', description: 'UUID de la commission', type: String })
   @ApiParam({ name: 'membreId', description: 'UUID du membre', type: String })
   @ApiResponse({ status: 204, description: 'Membre retiré' })
   @ApiResponse({ status: 404, description: 'Commission ou membre introuvable' })
-  @ApiResponse({ status: 401, description: 'Non autorisé — header X-User-Id manquant ou session invalide' })
+  @ApiResponse({
+    status: 401,
+    description: 'Non autorisé — header X-User-Id manquant ou session invalide',
+  })
   removeMembre(
     @Param('id', ParseUUIDPipe) id: string,
     @Param('membreId', ParseUUIDPipe) membreId: string,
@@ -171,12 +281,18 @@ export class CommissionEvaluationController {
   }
 
   @Get(':id/export-pdf')
-  @ApiOperation({ summary: 'Exporter la commission d\'évaluation en PDF' })
+  @ApiOperation({ summary: "Exporter la commission d'évaluation en PDF" })
   @ApiParam({ name: 'id', description: 'UUID de la commission', type: String })
   @ApiResponse({ status: 200, description: 'Fichier PDF téléchargé' })
   @ApiResponse({ status: 404, description: 'Commission introuvable' })
-  @ApiResponse({ status: 401, description: 'Non autorisé — header X-User-Id manquant ou session invalide' })
-  async exportPdf(@Param('id', ParseUUIDPipe) id: string, @Res() res: Response): Promise<void> {
+  @ApiResponse({
+    status: 401,
+    description: 'Non autorisé — header X-User-Id manquant ou session invalide',
+  })
+  async exportPdf(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Res() res: Response,
+  ): Promise<void> {
     const { buffer, fileName } = await this.service.exportPdf(id);
 
     res.setHeader('Content-Type', 'application/pdf');

@@ -35,7 +35,9 @@ export class CommissionMarcheService {
   ) {}
 
   private emit(event: string, payload: object): void {
-    this.rmqClient.emit(event, payload).subscribe({ error: (e) => console.error(`RabbitMQ emit error [${event}]:`, e) });
+    this.rmqClient.emit(event, payload).subscribe({
+      error: (e) => console.error(`RabbitMQ emit error [${event}]:`, e),
+    });
   }
 
   private async generateReference(): Promise<string> {
@@ -44,7 +46,9 @@ export class CommissionMarcheService {
     return `CM-${year}-${String(count + 1).padStart(4, '0')}`;
   }
 
-  async findAll(query: PaginationQueryDto): Promise<PaginatedResponseDto<CommissionMarche>> {
+  async findAll(
+    query: PaginationQueryDto,
+  ): Promise<PaginatedResponseDto<CommissionMarche>> {
     const { page = 1, limit = 10, statut, dateFrom, dateTo, search } = query;
     const skip = (page - 1) * limit;
 
@@ -54,7 +58,10 @@ export class CommissionMarcheService {
         .where('cm.reference LIKE :search OR cm.intitule LIKE :search', {
           search: `%${search}%`,
         })
-        .andWhere(statut ? 'cm.statut = :statut' : '1=1', statut ? { statut } : {})
+        .andWhere(
+          statut ? 'cm.statut = :statut' : '1=1',
+          statut ? { statut } : {},
+        )
         .skip(skip)
         .take(limit)
         .getManyAndCount();
@@ -86,7 +93,9 @@ export class CommissionMarcheService {
       relations: ['membres'],
     });
     if (!commission) {
-      throw new NotFoundException(`Commission de marché avec l'ID "${id}" introuvable`);
+      throw new NotFoundException(
+        `Commission de marché avec l'ID "${id}" introuvable`,
+      );
     }
     return commission;
   }
@@ -106,7 +115,10 @@ export class CommissionMarcheService {
     return saved;
   }
 
-  async update(id: string, dto: UpdateCommissionMarcheDto): Promise<CommissionMarche> {
+  async update(
+    id: string,
+    dto: UpdateCommissionMarcheDto,
+  ): Promise<CommissionMarche> {
     const commission = await this.findOne(id);
     Object.assign(commission, dto);
     return this.commissionRepo.save(commission);
@@ -117,7 +129,10 @@ export class CommissionMarcheService {
     await this.commissionRepo.remove(commission);
   }
 
-  async changeStatut(id: string, dto: ChangeStatutMarcheDto): Promise<CommissionMarche> {
+  async changeStatut(
+    id: string,
+    dto: ChangeStatutMarcheDto,
+  ): Promise<CommissionMarche> {
     const commission = await this.findOne(id);
     commission.statut = dto.statut;
     const saved = await this.commissionRepo.save(commission);
@@ -141,7 +156,9 @@ export class CommissionMarcheService {
       where: { commissionId: id, userId: dto.userId },
     });
     if (existing) {
-      throw new ConflictException('Ce membre fait déjà partie de cette commission');
+      throw new ConflictException(
+        'Ce membre fait déjà partie de cette commission',
+      );
     }
     const membre = this.membreRepo.create({ ...dto, commissionId: id });
     return this.membreRepo.save(membre);
@@ -153,7 +170,9 @@ export class CommissionMarcheService {
       where: { id: membreId, commissionId: id },
     });
     if (!membre) {
-      throw new NotFoundException(`Membre avec l'ID "${membreId}" introuvable dans cette commission`);
+      throw new NotFoundException(
+        `Membre avec l'ID "${membreId}" introuvable dans cette commission`,
+      );
     }
     await this.membreRepo.remove(membre);
   }
@@ -164,13 +183,18 @@ export class CommissionMarcheService {
       where: { id: membreId, commissionId: id },
     });
     if (!membre) {
-      throw new NotFoundException(`Membre avec l'ID "${membreId}" introuvable dans cette commission`);
+      throw new NotFoundException(
+        `Membre avec l'ID "${membreId}" introuvable dans cette commission`,
+      );
     }
     Object.assign(membre, dto);
     return this.membreRepo.save(membre);
   }
 
-  async setDeliberation(id: string, dto: DeliberationDto): Promise<CommissionMarche> {
+  async setDeliberation(
+    id: string,
+    dto: DeliberationDto,
+  ): Promise<CommissionMarche> {
     const commission = await this.findOne(id);
     commission.pvDeliberation = dto.pvDeliberation;
     commission.statut = StatutMarche.DELIBERATION;
@@ -187,7 +211,9 @@ export class CommissionMarcheService {
     return saved;
   }
 
-  async getDeliberation(id: string): Promise<{ pvDeliberation: string | null; commissionId: string }> {
+  async getDeliberation(
+    id: string,
+  ): Promise<{ pvDeliberation: string | null; commissionId: string }> {
     const commission = await this.findOne(id);
     return {
       commissionId: id,
@@ -195,7 +221,10 @@ export class CommissionMarcheService {
     };
   }
 
-  async attribuerMarche(id: string, dto: AttributionDto): Promise<CommissionMarche> {
+  async attribuerMarche(
+    id: string,
+    dto: AttributionDto,
+  ): Promise<CommissionMarche> {
     const commission = await this.findOne(id);
     commission.statut = StatutMarche.ATTRIBUEE;
     commission.soumissionnairesRetenu = dto.soumissionnairesRetenu;
@@ -224,22 +253,37 @@ export class CommissionMarcheService {
       doc.on('end', () => resolve(Buffer.concat(chunks)));
 
       // Title
-      doc.fontSize(18).font('Helvetica-Bold').text('COMMISSION DE MARCHE', { align: 'center' });
-      doc.fontSize(12).font('Helvetica').text(commission.reference, { align: 'center' });
+      doc
+        .fontSize(18)
+        .font('Helvetica-Bold')
+        .text('COMMISSION DE MARCHE', { align: 'center' });
+      doc
+        .fontSize(12)
+        .font('Helvetica')
+        .text(commission.reference, { align: 'center' });
       doc.moveDown();
 
       // Commission info
       doc.fontSize(12).font('Helvetica');
       doc.text(`Intitule: ${commission.intitule}`);
       doc.text(`Type: ${commission.typeMarche}`);
-      doc.text(`Montant estime: ${commission.montantEstime || 'Non specifie'} DZD`);
-      doc.text(`Date d'ouverture: ${commission.dateOuvertureOffres || 'Non programmee'}`);
-      doc.text(`Date de deliberation: ${commission.dateDeliberations || 'Non programmee'}`);
+      doc.text(
+        `Montant estime: ${commission.montantEstime || 'Non specifie'} DZD`,
+      );
+      doc.text(
+        `Date d'ouverture: ${commission.dateOuvertureOffres || 'Non programmee'}`,
+      );
+      doc.text(
+        `Date de deliberation: ${commission.dateDeliberations || 'Non programmee'}`,
+      );
       doc.text(`Statut: ${commission.statut}`);
       doc.moveDown();
 
       // Members section
-      doc.fontSize(14).font('Helvetica-Bold').text('MEMBRES DE LA COMMISSION', { underline: true });
+      doc
+        .fontSize(14)
+        .font('Helvetica-Bold')
+        .text('MEMBRES DE LA COMMISSION', { underline: true });
       doc.moveDown(0.5);
       doc.fontSize(11).font('Helvetica');
       membres.forEach((m, i) => {
@@ -248,22 +292,37 @@ export class CommissionMarcheService {
       doc.moveDown();
 
       // Results section
-      doc.fontSize(14).font('Helvetica-Bold').text('RESULTATS', { underline: true });
+      doc
+        .fontSize(14)
+        .font('Helvetica-Bold')
+        .text('RESULTATS', { underline: true });
       doc.moveDown(0.5);
       doc.fontSize(11).font('Helvetica');
-      doc.text(`Nombre de soumissionnaires: ${commission.soumissionnairesCount}`);
-      doc.text(`Soumissionnaire retenu: ${commission.soumissionnairesRetenu || 'Non attribue'}`);
+      doc.text(
+        `Nombre de soumissionnaires: ${commission.soumissionnairesCount}`,
+      );
+      doc.text(
+        `Soumissionnaire retenu: ${commission.soumissionnairesRetenu || 'Non attribue'}`,
+      );
       doc.moveDown();
 
       // PV section
       if (commission.pvDeliberation) {
-        doc.fontSize(14).font('Helvetica-Bold').text('PV DE DELIBERATION', { underline: true });
+        doc
+          .fontSize(14)
+          .font('Helvetica-Bold')
+          .text('PV DE DELIBERATION', { underline: true });
         doc.moveDown(0.5);
         doc.fontSize(11).font('Helvetica').text(commission.pvDeliberation);
         doc.moveDown();
       }
 
-      doc.fontSize(10).fillColor('gray').text(`Genere le: ${new Date().toLocaleString('fr-FR')}`, { align: 'right' });
+      doc
+        .fontSize(10)
+        .fillColor('gray')
+        .text(`Genere le: ${new Date().toLocaleString('fr-FR')}`, {
+          align: 'right',
+        });
 
       doc.end();
     });

@@ -33,32 +33,54 @@ import { SeanceOuverture } from './entities/seance-ouverture.entity';
 import { ResultatOuverture } from './entities/resultat-ouverture.entity';
 
 @ApiTags('seances-ouverture')
-@ApiHeader({ name: 'X-User-Id', required: true, description: 'ID utilisateur (via Gateway)' })
-@ApiHeader({ name: 'X-User-Roles', required: true, description: 'Rôles utilisateur (via Gateway)' })
+@ApiHeader({
+  name: 'X-User-Id',
+  required: true,
+  description: 'ID utilisateur (via Gateway)',
+})
+@ApiHeader({
+  name: 'X-User-Roles',
+  required: true,
+  description: 'Rôles utilisateur (via Gateway)',
+})
 @Controller('api/v1/seances-ouverture')
 @UseGuards(GatewayGuard)
 export class SeanceOuvertureController {
   constructor(private readonly service: SeanceOuvertureService) {}
 
   @Post()
-  @ApiOperation({ summary: 'Programmer une séance d\'ouverture' })
-  @ApiResponse({ status: 201, description: 'Séance programmée', type: SeanceOuverture })
+  @ApiOperation({ summary: "Programmer une séance d'ouverture" })
+  @ApiResponse({
+    status: 201,
+    description: 'Séance programmée',
+    type: SeanceOuverture,
+  })
   create(@Body() dto: CreateSeanceDto): Promise<SeanceOuverture> {
     return this.service.create(dto);
   }
 
   @Get()
-  @ApiOperation({ summary: 'Liste des séances d\'ouverture' })
+  @ApiOperation({ summary: "Liste des séances d'ouverture" })
   @ApiQuery({ name: 'commissionId', required: false })
-  @ApiResponse({ status: 200, description: 'Liste des séances', type: [SeanceOuverture] })
-  findAll(@Query('commissionId') commissionId?: string): Promise<SeanceOuverture[]> {
+  @ApiResponse({
+    status: 200,
+    description: 'Liste des séances',
+    type: [SeanceOuverture],
+  })
+  findAll(
+    @Query('commissionId') commissionId?: string,
+  ): Promise<SeanceOuverture[]> {
     return this.service.findAll(commissionId);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Obtenir une séance par ID' })
   @ApiParam({ name: 'id', type: 'string' })
-  @ApiResponse({ status: 200, description: 'Séance trouvée', type: SeanceOuverture })
+  @ApiResponse({
+    status: 200,
+    description: 'Séance trouvée',
+    type: SeanceOuverture,
+  })
   @ApiResponse({ status: 404, description: 'Séance introuvable' })
   findOne(@Param('id', ParseUUIDPipe) id: string): Promise<SeanceOuverture> {
     return this.service.findOne(id);
@@ -67,7 +89,11 @@ export class SeanceOuvertureController {
   @Put(':id')
   @ApiOperation({ summary: 'Modifier une séance' })
   @ApiParam({ name: 'id', type: 'string' })
-  @ApiResponse({ status: 200, description: 'Séance modifiée', type: SeanceOuverture })
+  @ApiResponse({
+    status: 200,
+    description: 'Séance modifiée',
+    type: SeanceOuverture,
+  })
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateSeanceDto,
@@ -87,7 +113,11 @@ export class SeanceOuvertureController {
   @Patch(':id/demarrer')
   @ApiOperation({ summary: 'Démarrer la séance' })
   @ApiParam({ name: 'id', type: 'string' })
-  @ApiResponse({ status: 200, description: 'Séance démarrée', type: SeanceOuverture })
+  @ApiResponse({
+    status: 200,
+    description: 'Séance démarrée',
+    type: SeanceOuverture,
+  })
   demarrer(@Param('id', ParseUUIDPipe) id: string): Promise<SeanceOuverture> {
     return this.service.demarrer(id);
   }
@@ -95,25 +125,36 @@ export class SeanceOuvertureController {
   @Patch(':id/terminer')
   @ApiOperation({ summary: 'Terminer la séance' })
   @ApiParam({ name: 'id', type: 'string' })
-  @ApiResponse({ status: 200, description: 'Séance terminée', type: SeanceOuverture })
+  @ApiResponse({
+    status: 200,
+    description: 'Séance terminée',
+    type: SeanceOuverture,
+  })
   terminer(@Param('id', ParseUUIDPipe) id: string): Promise<SeanceOuverture> {
     return this.service.terminer(id);
   }
 
   @Post(':id/pv')
-  @ApiOperation({ summary: 'Générer le PV d\'ouverture (upload MinIO)' })
+  @ApiOperation({ summary: "Générer le PV d'ouverture (upload MinIO)" })
   @ApiParam({ name: 'id', type: 'string' })
-  @ApiResponse({ status: 201, description: 'PV généré', schema: { properties: { url: { type: 'string' } } } })
+  @ApiResponse({
+    status: 201,
+    description: 'PV généré',
+    schema: { properties: { url: { type: 'string' } } },
+  })
   generatePV(@Param('id', ParseUUIDPipe) id: string): Promise<{ url: string }> {
     return this.service.generatePV(id);
   }
 
   @Get(':id/pv')
-  @ApiOperation({ summary: 'Télécharger le PV d\'ouverture (fichier PDF)' })
+  @ApiOperation({ summary: "Télécharger le PV d'ouverture (fichier PDF)" })
   @ApiParam({ name: 'id', type: 'string' })
   @ApiResponse({ status: 200, description: 'Fichier PDF' })
   @ApiResponse({ status: 404, description: 'PV non généré' })
-  async getPV(@Param('id', ParseUUIDPipe) id: string, @Res() res: Response): Promise<void> {
+  async getPV(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Res() res: Response,
+  ): Promise<void> {
     const { fileName, stream } = await this.service.getPV(id);
 
     res.setHeader('Content-Type', 'application/pdf');
@@ -124,18 +165,28 @@ export class SeanceOuvertureController {
 
   // Résultats d'ouverture
   @Get(':id/resultats')
-  @ApiOperation({ summary: 'Lister les résultats d\'ouverture d\'une séance' })
+  @ApiOperation({ summary: "Lister les résultats d'ouverture d'une séance" })
   @ApiParam({ name: 'id', type: 'string', description: 'ID de la séance' })
-  @ApiResponse({ status: 200, description: 'Liste des résultats', type: [ResultatOuverture] })
+  @ApiResponse({
+    status: 200,
+    description: 'Liste des résultats',
+    type: [ResultatOuverture],
+  })
   @ApiResponse({ status: 404, description: 'Séance introuvable' })
-  getResultats(@Param('id', ParseUUIDPipe) seanceId: string): Promise<ResultatOuverture[]> {
+  getResultats(
+    @Param('id', ParseUUIDPipe) seanceId: string,
+  ): Promise<ResultatOuverture[]> {
     return this.service.getResultats(seanceId);
   }
 
   @Post(':id/resultats')
-  @ApiOperation({ summary: 'Enregistrer un résultat d\'ouverture' })
+  @ApiOperation({ summary: "Enregistrer un résultat d'ouverture" })
   @ApiParam({ name: 'id', type: 'string', description: 'ID de la séance' })
-  @ApiResponse({ status: 201, description: 'Résultat enregistré', type: ResultatOuverture })
+  @ApiResponse({
+    status: 201,
+    description: 'Résultat enregistré',
+    type: ResultatOuverture,
+  })
   addResultat(
     @Param('id', ParseUUIDPipe) seanceId: string,
     @Body() dto: CreateResultatDto,
@@ -144,10 +195,18 @@ export class SeanceOuvertureController {
   }
 
   @Put(':id/resultats/:resultatId')
-  @ApiOperation({ summary: 'Modifier un résultat d\'ouverture' })
+  @ApiOperation({ summary: "Modifier un résultat d'ouverture" })
   @ApiParam({ name: 'id', type: 'string', description: 'ID de la séance' })
-  @ApiParam({ name: 'resultatId', type: 'string', description: 'ID du résultat' })
-  @ApiResponse({ status: 200, description: 'Résultat modifié', type: ResultatOuverture })
+  @ApiParam({
+    name: 'resultatId',
+    type: 'string',
+    description: 'ID du résultat',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Résultat modifié',
+    type: ResultatOuverture,
+  })
   updateResultat(
     @Param('id', ParseUUIDPipe) seanceId: string,
     @Param('resultatId', ParseUUIDPipe) resultatId: string,
@@ -158,9 +217,13 @@ export class SeanceOuvertureController {
 
   @Delete(':id/resultats/:resultatId')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Supprimer un résultat d\'ouverture' })
+  @ApiOperation({ summary: "Supprimer un résultat d'ouverture" })
   @ApiParam({ name: 'id', type: 'string', description: 'ID de la séance' })
-  @ApiParam({ name: 'resultatId', type: 'string', description: 'ID du résultat' })
+  @ApiParam({
+    name: 'resultatId',
+    type: 'string',
+    description: 'ID du résultat',
+  })
   @ApiResponse({ status: 204, description: 'Résultat supprimé' })
   deleteResultat(
     @Param('id', ParseUUIDPipe) seanceId: string,

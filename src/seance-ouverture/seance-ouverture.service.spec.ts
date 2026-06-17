@@ -125,7 +125,9 @@ describe('SeanceOuvertureService', () => {
 
     it('should throw NotFoundException if seance not found', async () => {
       seanceRepo.findOne.mockResolvedValue(null);
-      await expect(service.findOne('invalid-id')).rejects.toThrow(NotFoundException);
+      await expect(service.findOne('invalid-id')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -152,8 +154,13 @@ describe('SeanceOuvertureService', () => {
     });
 
     it('should throw BadRequestException if seance is TERMINEE', async () => {
-      seanceRepo.findOne.mockResolvedValue({ ...mockSeance, statut: StatutSeance.TERMINEE });
-      await expect(service.update('seance-uuid', {})).rejects.toThrow(BadRequestException);
+      seanceRepo.findOne.mockResolvedValue({
+        ...mockSeance,
+        statut: StatutSeance.TERMINEE,
+      });
+      await expect(service.update('seance-uuid', {})).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 
@@ -164,8 +171,13 @@ describe('SeanceOuvertureService', () => {
     });
 
     it('should throw BadRequestException if seance is not PROGRAMMEE', async () => {
-      seanceRepo.findOne.mockResolvedValue({ ...mockSeance, statut: StatutSeance.EN_COURS });
-      await expect(service.delete('seance-uuid')).rejects.toThrow(BadRequestException);
+      seanceRepo.findOne.mockResolvedValue({
+        ...mockSeance,
+        statut: StatutSeance.EN_COURS,
+      });
+      await expect(service.delete('seance-uuid')).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 
@@ -179,14 +191,22 @@ describe('SeanceOuvertureService', () => {
     });
 
     it('should throw BadRequestException if seance is not PROGRAMMEE', async () => {
-      seanceRepo.findOne.mockResolvedValue({ ...mockSeance, statut: StatutSeance.EN_COURS });
-      await expect(service.demarrer('seance-uuid')).rejects.toThrow(BadRequestException);
+      seanceRepo.findOne.mockResolvedValue({
+        ...mockSeance,
+        statut: StatutSeance.EN_COURS,
+      });
+      await expect(service.demarrer('seance-uuid')).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 
   describe('terminer', () => {
     it('should end a seance and emit event', async () => {
-      seanceRepo.findOne.mockResolvedValue({ ...mockSeance, statut: StatutSeance.EN_COURS });
+      seanceRepo.findOne.mockResolvedValue({
+        ...mockSeance,
+        statut: StatutSeance.EN_COURS,
+      });
       const result = await service.terminer('seance-uuid');
 
       expect(seanceRepo.save).toHaveBeenCalled();
@@ -195,14 +215,22 @@ describe('SeanceOuvertureService', () => {
     });
 
     it('should throw BadRequestException if seance is not EN_COURS', async () => {
-      seanceRepo.findOne.mockResolvedValue({ ...mockSeance, statut: StatutSeance.PROGRAMMEE });
-      await expect(service.terminer('seance-uuid')).rejects.toThrow(BadRequestException);
+      seanceRepo.findOne.mockResolvedValue({
+        ...mockSeance,
+        statut: StatutSeance.PROGRAMMEE,
+      });
+      await expect(service.terminer('seance-uuid')).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 
   describe('addResultat', () => {
     it('should add a resultat', async () => {
-      seanceRepo.findOne.mockResolvedValue({ ...mockSeance, statut: StatutSeance.EN_COURS });
+      seanceRepo.findOne.mockResolvedValue({
+        ...mockSeance,
+        statut: StatutSeance.EN_COURS,
+      });
       resultatRepo.findOne.mockResolvedValue(null);
       const dto = {
         soumissionId: 'soumission-uuid',
@@ -218,64 +246,108 @@ describe('SeanceOuvertureService', () => {
     });
 
     it('should throw BadRequestException if seance is TERMINEE', async () => {
-      seanceRepo.findOne.mockResolvedValue({ ...mockSeance, statut: StatutSeance.TERMINEE });
-      await expect(service.addResultat('seance-uuid', {} as any)).rejects.toThrow(BadRequestException);
+      seanceRepo.findOne.mockResolvedValue({
+        ...mockSeance,
+        statut: StatutSeance.TERMINEE,
+      });
+      await expect(
+        service.addResultat('seance-uuid', {} as any),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should throw BadRequestException if resultat already exists', async () => {
-      seanceRepo.findOne.mockResolvedValue({ ...mockSeance, statut: StatutSeance.EN_COURS });
+      seanceRepo.findOne.mockResolvedValue({
+        ...mockSeance,
+        statut: StatutSeance.EN_COURS,
+      });
       resultatRepo.findOne.mockResolvedValue(mockResultat);
-      await expect(service.addResultat('seance-uuid', { soumissionId: 'existing' } as any)).rejects.toThrow(BadRequestException);
+      await expect(
+        service.addResultat('seance-uuid', { soumissionId: 'existing' } as any),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 
   describe('updateResultat', () => {
     it('should update a resultat', async () => {
-      seanceRepo.findOne.mockResolvedValue({ ...mockSeance, statut: StatutSeance.EN_COURS });
+      seanceRepo.findOne.mockResolvedValue({
+        ...mockSeance,
+        statut: StatutSeance.EN_COURS,
+      });
       resultatRepo.findOne.mockResolvedValue(mockResultat);
       const dto = { observations: 'Updated' };
 
-      const result = await service.updateResultat('seance-uuid', 'resultat-uuid', dto);
+      const result = await service.updateResultat(
+        'seance-uuid',
+        'resultat-uuid',
+        dto,
+      );
 
       expect(resultatRepo.save).toHaveBeenCalled();
       expect(result).toEqual(mockResultat);
     });
 
     it('should throw BadRequestException if seance is TERMINEE', async () => {
-      seanceRepo.findOne.mockResolvedValue({ ...mockSeance, statut: StatutSeance.TERMINEE });
-      await expect(service.updateResultat('seance-uuid', 'resultat-uuid', {})).rejects.toThrow(BadRequestException);
+      seanceRepo.findOne.mockResolvedValue({
+        ...mockSeance,
+        statut: StatutSeance.TERMINEE,
+      });
+      await expect(
+        service.updateResultat('seance-uuid', 'resultat-uuid', {}),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should throw NotFoundException if resultat not found', async () => {
-      seanceRepo.findOne.mockResolvedValue({ ...mockSeance, statut: StatutSeance.EN_COURS });
+      seanceRepo.findOne.mockResolvedValue({
+        ...mockSeance,
+        statut: StatutSeance.EN_COURS,
+      });
       resultatRepo.findOne.mockResolvedValue(null);
-      await expect(service.updateResultat('seance-uuid', 'invalid', {})).rejects.toThrow(NotFoundException);
+      await expect(
+        service.updateResultat('seance-uuid', 'invalid', {}),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
   describe('deleteResultat', () => {
     it('should delete a resultat', async () => {
-      seanceRepo.findOne.mockResolvedValue({ ...mockSeance, statut: StatutSeance.EN_COURS });
+      seanceRepo.findOne.mockResolvedValue({
+        ...mockSeance,
+        statut: StatutSeance.EN_COURS,
+      });
       resultatRepo.findOne.mockResolvedValue(mockResultat);
       await service.deleteResultat('seance-uuid', 'resultat-uuid');
       expect(resultatRepo.remove).toHaveBeenCalledWith(mockResultat);
     });
 
     it('should throw BadRequestException if seance is TERMINEE', async () => {
-      seanceRepo.findOne.mockResolvedValue({ ...mockSeance, statut: StatutSeance.TERMINEE });
-      await expect(service.deleteResultat('seance-uuid', 'invalid')).rejects.toThrow(BadRequestException);
+      seanceRepo.findOne.mockResolvedValue({
+        ...mockSeance,
+        statut: StatutSeance.TERMINEE,
+      });
+      await expect(
+        service.deleteResultat('seance-uuid', 'invalid'),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should throw NotFoundException if resultat not found', async () => {
-      seanceRepo.findOne.mockResolvedValue({ ...mockSeance, statut: StatutSeance.EN_COURS });
+      seanceRepo.findOne.mockResolvedValue({
+        ...mockSeance,
+        statut: StatutSeance.EN_COURS,
+      });
       resultatRepo.findOne.mockResolvedValue(null);
-      await expect(service.deleteResultat('seance-uuid', 'invalid')).rejects.toThrow(NotFoundException);
+      await expect(
+        service.deleteResultat('seance-uuid', 'invalid'),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
   describe('generatePV', () => {
     it('should generate PV and upload to MinIO', async () => {
-      seanceRepo.findOne.mockResolvedValue({ ...mockSeance, statut: StatutSeance.TERMINEE, resultats: [] });
+      seanceRepo.findOne.mockResolvedValue({
+        ...mockSeance,
+        statut: StatutSeance.TERMINEE,
+        resultats: [],
+      });
 
       const result = await service.generatePV('seance-uuid');
 
@@ -286,8 +358,13 @@ describe('SeanceOuvertureService', () => {
     });
 
     it('should throw BadRequestException if seance is not TERMINEE', async () => {
-      seanceRepo.findOne.mockResolvedValue({ ...mockSeance, statut: StatutSeance.PROGRAMMEE });
-      await expect(service.generatePV('seance-uuid')).rejects.toThrow(BadRequestException);
+      seanceRepo.findOne.mockResolvedValue({
+        ...mockSeance,
+        statut: StatutSeance.PROGRAMMEE,
+      });
+      await expect(service.generatePV('seance-uuid')).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 });

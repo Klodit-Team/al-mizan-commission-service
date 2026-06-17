@@ -11,7 +11,7 @@ import { RoleMembreMarche } from '../../common/enums/role-membre.enum';
 
 export class AddMembreMarcheDto {
   @ApiProperty({
-    description: 'UUID de l\'utilisateur',
+    description: "UUID de l'utilisateur",
     example: '550e8400-e29b-41d4-a716-446655440002',
   })
   @IsNotEmpty()

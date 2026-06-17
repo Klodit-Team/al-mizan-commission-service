@@ -78,7 +78,9 @@ export class SeanceOuvertureService {
     const seance = await this.findOne(id);
 
     if (seance.statut === StatutSeance.TERMINEE) {
-      throw new BadRequestException('Impossible de modifier une séance terminée');
+      throw new BadRequestException(
+        'Impossible de modifier une séance terminée',
+      );
     }
 
     Object.assign(seance, dto);
@@ -93,7 +95,9 @@ export class SeanceOuvertureService {
     const seance = await this.findOne(id);
 
     if (seance.statut !== StatutSeance.PROGRAMMEE) {
-      throw new BadRequestException('Seules les séances programmées peuvent être supprimées');
+      throw new BadRequestException(
+        'Seules les séances programmées peuvent être supprimées',
+      );
     }
 
     await this.seanceRepository.remove(seance);
@@ -103,7 +107,7 @@ export class SeanceOuvertureService {
     const seance = await this.findOne(id);
 
     if (seance.statut !== StatutSeance.PROGRAMMEE) {
-      throw new BadRequestException('La séance doit être à l\'état PROGRAMMEE');
+      throw new BadRequestException("La séance doit être à l'état PROGRAMMEE");
     }
 
     seance.statut = StatutSeance.EN_COURS;
@@ -147,11 +151,16 @@ export class SeanceOuvertureService {
     });
   }
 
-  async addResultat(seanceId: string, dto: CreateResultatDto): Promise<ResultatOuverture> {
+  async addResultat(
+    seanceId: string,
+    dto: CreateResultatDto,
+  ): Promise<ResultatOuverture> {
     const seance = await this.findOne(seanceId);
 
     if (seance.statut === StatutSeance.TERMINEE) {
-      throw new BadRequestException('Impossible d\'ajouter des résultats à une séance terminée');
+      throw new BadRequestException(
+        "Impossible d'ajouter des résultats à une séance terminée",
+      );
     }
 
     const existing = await this.resultatRepository.findOne({
@@ -159,7 +168,9 @@ export class SeanceOuvertureService {
     });
 
     if (existing) {
-      throw new BadRequestException('Résultat déjà enregistré pour cette soumission');
+      throw new BadRequestException(
+        'Résultat déjà enregistré pour cette soumission',
+      );
     }
 
     const resultat = this.resultatRepository.create({
@@ -178,7 +189,9 @@ export class SeanceOuvertureService {
     const seance = await this.findOne(seanceId);
 
     if (seance.statut === StatutSeance.TERMINEE) {
-      throw new BadRequestException('Impossible de modifier les résultats d\'une séance terminée');
+      throw new BadRequestException(
+        "Impossible de modifier les résultats d'une séance terminée",
+      );
     }
 
     const resultat = await this.resultatRepository.findOne({
@@ -197,7 +210,9 @@ export class SeanceOuvertureService {
     const seance = await this.findOne(seanceId);
 
     if (seance.statut === StatutSeance.TERMINEE) {
-      throw new BadRequestException('Impossible de supprimer les résultats d\'une séance terminée');
+      throw new BadRequestException(
+        "Impossible de supprimer les résultats d'une séance terminée",
+      );
     }
 
     const resultat = await this.resultatRepository.findOne({
@@ -211,7 +226,9 @@ export class SeanceOuvertureService {
     await this.resultatRepository.remove(resultat);
   }
 
-  async getPV(id: string): Promise<{ fileName: string; stream: NodeJS.ReadableStream }> {
+  async getPV(
+    id: string,
+  ): Promise<{ fileName: string; stream: NodeJS.ReadableStream }> {
     const seance = await this.findOne(id);
 
     if (!seance.pvUrl) {
@@ -221,7 +238,10 @@ export class SeanceOuvertureService {
     // Extract filename from pvUrl (format: http://minio:9000/bucket/filename.pdf)
     const fileName = seance.pvUrl.split('/').pop() as string;
 
-    const stream = await this.minioService.getFileStream('commission-pv', fileName);
+    const stream = await this.minioService.getFileStream(
+      'commission-pv',
+      fileName,
+    );
 
     return { fileName, stream };
   }
@@ -230,7 +250,9 @@ export class SeanceOuvertureService {
     const seance = await this.findOne(id);
 
     if (seance.statut !== StatutSeance.TERMINEE) {
-      throw new BadRequestException('La séance doit être terminée pour générer le PV');
+      throw new BadRequestException(
+        'La séance doit être terminée pour générer le PV',
+      );
     }
 
     // Generate PDF content
@@ -271,26 +293,38 @@ export class SeanceOuvertureService {
       doc.on('end', () => resolve(Buffer.concat(chunks)));
 
       // Title
-      doc.fontSize(18).font('Helvetica-Bold').text("PROCES-VERBAL D'OUVERTURE DES PLIS", { align: 'center' });
+      doc
+        .fontSize(18)
+        .font('Helvetica-Bold')
+        .text("PROCES-VERBAL D'OUVERTURE DES PLIS", { align: 'center' });
       doc.moveDown();
 
       // Seance info
       doc.fontSize(12).font('Helvetica');
       doc.text(`Reference: ${seance.id}`);
       doc.text(`Type: ${seance.type}`);
-      doc.text(`Date: ${seance.dateSeance.toLocaleDateString('fr-FR')} a ${seance.dateSeance.toLocaleTimeString('fr-FR')}`);
+      doc.text(
+        `Date: ${seance.dateSeance.toLocaleDateString('fr-FR')} a ${seance.dateSeance.toLocaleTimeString('fr-FR')}`,
+      );
       doc.text(`Lieu: ${seance.lieu}`);
-      doc.text(`Caractere: ${seance.isPublique ? 'Seance publique' : 'Seance privee'}`);
+      doc.text(
+        `Caractere: ${seance.isPublique ? 'Seance publique' : 'Seance privee'}`,
+      );
       doc.moveDown();
 
       // Results section
-      doc.fontSize(14).font('Helvetica-Bold').text('RESULTATS D\'OUVERTURE', { underline: true });
+      doc
+        .fontSize(14)
+        .font('Helvetica-Bold')
+        .text("RESULTATS D'OUVERTURE", { underline: true });
       doc.moveDown(0.5);
 
       doc.fontSize(11).font('Helvetica');
       if (seance.resultats && seance.resultats.length > 0) {
         seance.resultats.forEach((r, i) => {
-          doc.font('Helvetica-Bold').text(`${i + 1}. Soumission: ${r.soumissionId}`);
+          doc
+            .font('Helvetica-Bold')
+            .text(`${i + 1}. Soumission: ${r.soumissionId}`);
           doc.font('Helvetica');
           doc.text(`   Pli recu: ${r.pliRecu ? 'Oui' : 'Non'}`);
           doc.text(`   Pli conforme: ${r.pliConforme ? 'Oui' : 'Non'}`);
@@ -302,7 +336,12 @@ export class SeanceOuvertureService {
       }
 
       doc.moveDown();
-      doc.fontSize(10).fillColor('gray').text(`Genere le: ${new Date().toLocaleString('fr-FR')}`, { align: 'right' });
+      doc
+        .fontSize(10)
+        .fillColor('gray')
+        .text(`Genere le: ${new Date().toLocaleString('fr-FR')}`, {
+          align: 'right',
+        });
 
       doc.end();
     });

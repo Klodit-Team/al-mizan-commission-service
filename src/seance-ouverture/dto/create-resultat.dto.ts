@@ -14,7 +14,10 @@ export class CreateResultatDto {
   @IsBoolean()
   pliConforme: boolean;
 
-  @ApiPropertyOptional({ description: 'Observations', example: 'Documents complets' })
+  @ApiPropertyOptional({
+    description: 'Observations',
+    example: 'Documents complets',
+  })
   @IsString()
   @IsOptional()
   observations?: string;

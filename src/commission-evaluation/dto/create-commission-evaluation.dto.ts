@@ -11,7 +11,7 @@ import { StatutEvaluation } from '../../common/enums/statut-evaluation.enum';
 
 export class CreateCommissionEvaluationDto {
   @ApiProperty({
-    description: 'Objet de la commission d\'évaluation',
+    description: "Objet de la commission d'évaluation",
     example: 'Évaluation des offres techniques - Projet SI 2024',
   })
   @IsNotEmpty()

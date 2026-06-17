@@ -8,7 +8,9 @@ describe('GatewayGuard', () => {
     guard = new GatewayGuard();
   });
 
-  const createMockContext = (headers: Record<string, string>): ExecutionContext => {
+  const createMockContext = (
+    headers: Record<string, string>,
+  ): ExecutionContext => {
     const mockRequest = {
       headers,
     };
